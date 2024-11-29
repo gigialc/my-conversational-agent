@@ -1,14 +1,38 @@
 'use client';
 
 import { useConversation } from '@11labs/react';
-import { useCallback } from 'react';
-import { useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import Image from 'next/image';
 
 export function Conversation() {
   const [isListening, setIsListening] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [agentId, setAgentId] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      try {
+        const response = await fetch("/api/getUserDetails");
+        if (!response.ok) {
+          throw new Error("Failed to fetch user details");
+        }
+
+        const data = await response.json();
+        setApiKey(data.elevenlabsapi || "");
+        setAgentId(data.elevenlabsagentid || "");
+      } catch (err) {
+        console.error(err);
+        setError(err instanceof Error ? err.message : "An error occurred");
+      }
+    };
+
+    fetchUserDetails();
+  }, []);
 
   const conversation = useConversation({
+    apiKey, // Use dynamic API key
+    agentId, // Use dynamic Agent ID
     onConnect: () => console.log('Connected'),
     onDisconnect: () => console.log('Disconnected'),
     onMessage: (message) => console.log('Message:', message),
@@ -22,14 +46,14 @@ export function Conversation() {
 
       // Start the conversation with your agent
       await conversation.startSession({
-        agentId: 'AP75bObawmAbTpaDIy4h', // Replace with your agent ID
+        agentId: agentId, // Dynamic Agent ID
       });
 
       setIsListening(true);
     } catch (error) {
       console.error('Failed to start conversation:', error);
     }
-  }, [conversation]);
+  }, [conversation, agentId]);
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();
@@ -49,27 +73,28 @@ export function Conversation() {
         </div>
 
         <div className="flex gap-4 mt-20">
-        <button
-          onClick={startConversation}
-          disabled={conversation.status === 'connected'}
-          className="px-6 py-2 bg-pink-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          Start
-        </button>
-        <button
-          onClick={stopConversation}
-          disabled={conversation.status !== 'connected'}
-          className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          Stop
-        </button>
-      </div>
+          <button
+            onClick={startConversation}
+            disabled={conversation.status === 'connected'}
+            className="px-6 py-2 bg-pink-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            Start
+          </button>
+          <button
+            onClick={stopConversation}
+            disabled={conversation.status !== 'connected'}
+            className="px-6 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            Stop
+          </button>
+        </div>
 
         <p className="mt-4 text-lg text-gray-700">
           {isListening
             ? 'Listening...'
             : conversation.status === 'connected'
-          }
+            ? 'Connected'
+            : 'Not Connected'}
         </p>
       </div>
      {/* Footer */}
@@ -81,4 +106,5 @@ export function Conversation() {
  </div>
 );
 }
+
 

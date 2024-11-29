@@ -1,27 +1,52 @@
 'use client';
 
 import { useState } from 'react';
+import { getSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 export default function Onboarding() {
   const [apiKey, setApiKey] = useState('');
   const [agentId, setAgentId] = useState('');
   const [error, setError] = useState('');
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+  
+    const session = await getSession();
+    if (!session) {
+      console.error('No session found. Please log in.');
+      console.log(session)
+      alert('You must be logged in to save settings.');
+      return;
+    }
 
     if (!apiKey.trim() || !agentId.trim()) {
       setError('Both fields are required.');
       return;
     }
-
-    // Save to localStorage or send to backend
-    localStorage.setItem('elevenLabsApiKey', apiKey);
-    localStorage.setItem('elevenLabsAgentId', agentId);
-
-    setError('');
-    alert('Settings saved successfully!');
+  
+    try {
+      const response = await fetch('/api/saveKeys', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ apiKey, agentId }),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to save settings.');
+      }
+  
+      setError('');
+      alert('Settings saved successfully!');
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    }
   };
+  
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-black">
