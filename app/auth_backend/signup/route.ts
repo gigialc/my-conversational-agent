@@ -10,47 +10,51 @@ connectToMongoDB();
 
 // POST route (Create a new user inside the DB)
 export async function POST(request: NextRequest) {
-	try {
-		// grab data from body
-		const reqBody = await request.json();
+  try {
+    // Grab data from body
+    const reqBody = await request.json();
 
-		// destructure the incoming variables
-		const { username, email, password } = reqBody;
+    // Destructure the incoming variables
+    const { username, email, password } = reqBody;
 
-		// REMOVE IN PRODUCTION
-		console.log(reqBody);
+    // REMOVE IN PRODUCTION
+    console.log(reqBody);
 
-		const user = await User.findOne({ email });
+    // Check if email or username already exists
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }],
+    });
 
-		if (user) {
-			return NextResponse.json(
-				{
-					error: 'This user already exists',
-				},
-				{ status: 400 }
-			);
-		}
+    if (existingUser) {
+      const conflictField = existingUser.email === email ? 'email' : 'username';
+      return NextResponse.json(
+        {
+          error: `A user with this ${conflictField} already exists.`,
+        },
+        { status: 400 }
+      );
+    }
 
-		// hash password
-		const salt = await bcryptjs.genSalt(10);
-		const hashedPassword = await bcryptjs.hash(password, salt);
+    // Hash password
+    const salt = await bcryptjs.genSalt(10);
+    const hashedPassword = await bcryptjs.hash(password, salt);
 
-		// create a new user
-		const newUser = new User({
-			username,
-			email,
-			password: hashedPassword,
-		});
+    // Create a new user
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword,
+    });
 
-		// save it inside the DB
-		const savedUser = await newUser.save();
+    // Save it inside the DB
+    const savedUser = await newUser.save();
 
-		return NextResponse.json({
-			message: 'User created!',
-			success: true,
-			savedUser,
-		});
-	} catch (error: any) {
-		return NextResponse.json({ error: error.message }, { status: 500 });
-	}
+    return NextResponse.json({
+      message: 'User created!',
+      success: true,
+      savedUser,
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }

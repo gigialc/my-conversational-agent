@@ -4,6 +4,7 @@ import Link from 'next/link';
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
+import Image from 'next/image'; // Import the Image component
 import { FaAngleLeft } from 'react-icons/fa6';
 import { signIn } from 'next-auth/react';
 
@@ -24,30 +25,29 @@ export default function SignUpPage() {
   const onSignUp = async () => {
     try {
       setLoading(true);
-  
-      const response = await axios.post("/auth_backend/signup", user);
-      console.log("Account successfully created!", response.data);
-  
+
+      const response = await axios.post('/auth_backend/signup', user);
+      console.log('Account successfully created!', response.data);
+
       // Automatically sign the user in
-      const signInResponse = await signIn("credentials", {
+      const signInResponse = await signIn('credentials', {
         redirect: false,
         email: user.email,
         password: user.password,
       });
-  
+
       if (signInResponse?.error) {
-        setErrorMessage("Error during sign-in. Please try logging in manually.");
-        console.log("Sign-in error:", signInResponse.error);
+        setErrorMessage('Error during sign-in. Please try logging in manually.');
+        console.log('Sign-in error:', signInResponse.error);
         return;
       }
-  
-      router.push("/onboardingPage");
+
+      router.push('/onboardingPage');
     } catch (error: any) {
       const message =
-        error.response?.data?.message ||
-        "Sign up failed, please try again.";
+        error.response?.data?.message || 'Sign up failed, please try again.';
       setErrorMessage(message);
-      console.log("Sign up failed:", message);
+      console.log('Sign up failed:', message);
     } finally {
       setLoading(false);
     }
@@ -67,7 +67,18 @@ export default function SignUpPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-pink-500 to-black py-6 px-4 sm:px-8 text-white">
-      <h1 className="py-2 text-4xl font-semibold text-black sm:text-5xl">Mirai</h1>
+      {/* Logo */}
+      {/* <div className="w-[150px] h-[150px] mb-6">
+        <Image
+          src="/mirailogo.png" // Path to the logo in the public folder
+          alt="Mirai Logo"
+          width={100}
+          height={100}
+          className="object-contain"
+        />
+      </div> */}
+
+      <h1 className="py-2 text-2xl font-semibold text-black sm:text-5xl">Mirai</h1>
       <h2 className="py-10 text-2xl font-semibold sm:text-3xl">
         {loading ? "We're logging you in..." : 'Register'}
       </h2>

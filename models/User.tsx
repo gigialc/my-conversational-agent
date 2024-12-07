@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
       type: String, // Optional field, no need for `required: false`
     },
     elevenlabsagentid: {
-      type: String, // Optional field, no need for `required: false`
+      type: String, // Stores the cloned voice agent ID
     },
   },
   {
