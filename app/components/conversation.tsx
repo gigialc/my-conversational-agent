@@ -5,7 +5,6 @@ import { useCallback, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useRef } from 'react';
 
-
 export function Conversation() {
   const [currentTab, setCurrentTab] = useState('setup');
   const [isListening, setIsListening] = useState(false);
@@ -14,33 +13,11 @@ export function Conversation() {
   const [agentId, setAgentId] = useState('');
   const [voiceCloningStatus, setVoiceCloningStatus] = useState('');
   const [error, setError] = useState('');
-  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-
-  // Fetch user details when component mounts
-  useEffect(() => {
-    const fetchUserDetails = async () => {
-      try {
-        const response = await fetch('/api/getUserDetails');
-        if (!response.ok) {
-          throw new Error('Failed to fetch user details');
-        }
-
-        const data = await response.json();
-        setEmail(data.email || '');
-        setApiKey(data.elevenlabsapi || '');
-        setAgentId(data.elevenlabsagentid || '');
-      } catch (err) {
-        console.error(err);
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      }
-    };
-
-    fetchUserDetails();
-  }, []);
+  const [elevenlabsagentid, setElevenlabsagentid] = useState('');
 
   // Conversation handlers
   const conversation = useConversation({
@@ -68,7 +45,6 @@ export function Conversation() {
     setIsListening(false);
   }, [conversation]);
 
-  // Start recording
   // Start recording
   const startRecording = async () => {
     try {
@@ -106,50 +82,62 @@ export function Conversation() {
   // Save user details and audio file
   const saveUserDetails = async () => {
     try {
-      if (!email || !apiKey || !audioBlob) {
-        setError('Frontend: Email, Eleven Labs API key, and an audio recording are required.');
+      if (!email || !apiKey || !audioBlob
+      ) {
+        setError('Email, API key, and audio file are required');
         return;
       }
-  
-      const formData = new FormData();
-      formData.append('name', 'Cloned Voice'); // Required for Eleven Labs
-      formData.append('email', email); // User email
-      formData.append('elevenlabsapi', apiKey); // API key
-      formData.append('files', audioBlob, 'recording.wav'); // Audio file
-      formData.append('remove_background_noise', 'true'); // Optional: Remove background noise
-      formData.append('description', 'Generated from frontend'); // Optional: Add a description
-      formData.append('labels', JSON.stringify({ project: 'VoiceCloning' })); // Optional: Metadata
-  
-      console.log('FormData being sent:');
-      formData.forEach((value, key) => {
-        console.log(`${key}:`, value instanceof Blob ? 'Blob' : value);
-      });
-  
-      const response = await fetch('/api/updateUserDetails', {
+      // Create FormData and append necessary fields
+      const form = new FormData();
+      form.append("name", email);
+      form.append("files", audioBlob, "recording.wav"); // Append audio file
+      form.append("remove_background_noise", "true");
+
+      const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: form
       });
-  
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error response from backend:', errorData);
-        throw new Error(errorData.message || 'Failed to clone voice.');
-      }
-  
-      const responseData = await response.json();
-      const clonedVoiceId = responseData.voiceId;
-  
-      if (!clonedVoiceId) {
-        throw new Error('Voice cloning failed: Missing voice ID in response.');
-      }
-  
-      console.log('Cloned Voice ID:', clonedVoiceId);
-      setAgentId(clonedVoiceId); // Save to state for conversation
-      setVoiceCloningStatus('Voice cloning successful!');
+
+      const data = await response.json();
+
+      console.log(data);
+      console.log('API Response:', data);
+      // Handle successful response
+      setVoiceCloningStatus(`Voice cloned successfully!`);
+      setElevenlabsagentid(data.voice_id);
+      postAgentIdToDatabase();
+      console.log('Voice cloned successfully! Voice ID:',elevenlabsagentid);
       setError('');
     } catch (error) {
-      console.error('Error saving user details:', error);
+      console.error('Failed to save user details:', error);
       setError(error instanceof Error ? error.message : 'An error occurred');
+    }
+  };
+  
+  const postAgentIdToDatabase = async () => {
+    try {
+      const response = await fetch('/api/updateUserDetails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ elevenlabsagentid , email}),
+      });
+
+      console.log('elevenlabsagentid:', elevenlabsagentid);
+      if (!response.ok) {
+        throw new Error('Failed to post agent ID to database');
+      }
+
+      const data = await response.json();
+      console.log('Agent ID posted to database:', data);
+    } catch (error) {
+      console.error('Error posting agent ID to database:', error);
+      setError('Failed to post agent ID to database. Please try again.');
     }
   };
   

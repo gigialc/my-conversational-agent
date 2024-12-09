@@ -1,56 +1,44 @@
-import fs from "fs";
-import fsp from "fs/promises";
-import path from "path";
-import FormData from "form-data";
-import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import { connectToMongoDB } from "@/dbConfig/dbconfig";
+import User from "@/models/User";
+import { NextResponse } from "next/server";
 
-export async function POST(req: NextRequest) {
-  const tempDir = "/tmp"; // Temporary directory
-  let tempFilePath: string | null = null;
 
+export async function POST(req: Request) {
   try {
-    // Save the audio file to a temporary location
-    const formData = await req.formData();
-    const audio = formData.get("files") as File;
+    
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.email) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+    const email = session.user.email;
+    console.log("Email:", email);
+    
+    // Get apiKey directly from the request bod
+    const body = await req.json();
+    const { elevenlabsagentid } = body;
+    console.log("Sending payload:", { elevenlabsagentid });
 
-    tempFilePath = path.join(tempDir, audio.name);
-    const buffer = Buffer.from(await audio.arrayBuffer());
-    await fsp.writeFile(tempFilePath, buffer);
-    console.log("File saved at:", tempFilePath);
-
-    // Prepare FormData for Eleven Labs API
-    const apiForm = new FormData();
-    apiForm.append("name", "Cloned Voice");
-    apiForm.append("files", fs.createReadStream(tempFilePath), "recording.wav");
-
-    // Send the request
-    const apiResponse = await fetch("https://api.elevenlabs.io/v1/voices/add", {
-      method: "POST",
-      headers: { ...apiForm.getHeaders(), "xi-api-key": "YOUR_API_KEY" },
-      body: apiForm as any,
-    });
-
-    if (!apiResponse.ok) {
-      const errorData = await apiResponse.json();
-      throw new Error(`Error from Eleven Labs API: ${JSON.stringify(errorData)}`);
+    if ( !elevenlabsagentid) {
+      return NextResponse.json({ message: "Email, API key, and agent ID are required" }, { status: 400 });
     }
 
-    const apiData = await apiResponse.json();
-    console.log("Voice cloned:", apiData);
+    await connectToMongoDB();
 
-    return NextResponse.json({ message: "Voice cloned successfully!", voiceId: apiData.voice_id });
+    const user = await User.findOneAndUpdate(
+      { email: email }, // Use email from request body
+      { elevenlabsagentid: elevenlabsagentid },
+      { new: true }
+    );
+
+    if (!user) {
+      return NextResponse.json({ message: "User not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: "Settings saved successfully" });
   } catch (error) {
-    console.error("Error:", error);
-    return NextResponse.json({ message: "Error occurred", error }, { status: 500 });
-  } finally {
-    // Cleanup temp file
-    if (tempFilePath) {
-      try {
-        await fsp.unlink(tempFilePath);
-        console.log("Temporary file cleaned up:", tempFilePath);
-      } catch (err) {
-        console.error("Cleanup error:", err);
-      }
-    }
+    console.error("Error in saveKeys API:", error);
+    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
   }
 }
