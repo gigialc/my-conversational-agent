@@ -3,7 +3,10 @@
 import { useConversation } from '@11labs/react';
 import { useCallback, useState, useEffect } from 'react';
 import Image from 'next/image';
+import { ElevenLabsClient } from "elevenlabs";
+import * as fs from "fs";
 import { useRef } from 'react';
+import { signIn, signOut, useSession } from "next-auth/react";
 
 export function Conversation() {
   const [currentTab, setCurrentTab] = useState('setup');
@@ -18,6 +21,7 @@ export function Conversation() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [elevenlabsagentid, setElevenlabsagentid] = useState('');
+  const [user, setUser] = useState(null);
 
   // Conversation handlers
   const conversation = useConversation({
@@ -31,14 +35,91 @@ export function Conversation() {
 
   const startConversation = useCallback(async () => {
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      await conversation.startSession({ agentId });
-      setIsListening(true);
+      // Step 1: Fetch user details for API key and agent ID
+      const response = await fetch('/api/getUserDetails');
+      const data = await response.json();
+  
+      console.log('User data:', data);
+  
+      if (!response.ok || !data.user?.elevenlabsapi || !data.user?.elevenlabsagentid) {
+        setError('Failed to fetch API key or agent ID.');
+        return;
+      }
+  
+      const apiKey = data.user.elevenlabsapi;
+      const agentId = data.user.elevenlabsagentid;
+  
+      // Step 2: Start recording audio from the user
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      const chunks: BlobPart[] = [];
+  
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+  
+      mediaRecorder.onstop = async () => {
+        // Step 3: Prepare FormData
+        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'input.wav');
+        formData.append('model_id', 'eleven_english_sts_v2');
+        formData.append(
+          'voice_settings',
+          JSON.stringify({
+            stability: 0.5,
+            similarity_boost: 0.8,
+            style: 0.0,
+            use_speaker_boost: true,
+          })
+        );
+  
+        console.log('FormData Contents:');
+        formData.forEach((value, key) => console.log(key, value));
+  
+        // Step 4: Make the Speech-to-Speech API call
+        console.log('Sending API Request...');
+        const stsResponse = await fetch(
+          `https://api.elevenlabs.io/v1/speech-to-speech/${agentId}/stream`,
+          {
+            method: 'POST',
+            headers: {
+              'xi-api-key': apiKey, // Set API key for authentication
+            },
+            body: formData,
+          }
+        );
+  
+        console.log('API Response Status:', stsResponse.status);
+  
+        if (stsResponse.ok) {
+          const responseBlob = await stsResponse.blob();
+          const audioUrl = URL.createObjectURL(responseBlob);
+  
+          console.log('Generated Audio URL:', audioUrl);
+  
+          // Step 5: Play the audio
+          const audio = new Audio(audioUrl);
+          audio.play();
+          setError('');
+        } else {
+          const errorData = await stsResponse.text();
+          console.error('API Error Response:', errorData);
+          setError(errorData || 'Failed to process audio response.');
+        }
+      };
+  
+      // Step 6: Start recording
+      mediaRecorder.start();
+      console.log('Recording started...');
+      setTimeout(() => {
+        mediaRecorder.stop(); // Stop recording after 10 seconds
+        console.log('Recording stopped.');
+      }, 10000);
     } catch (error) {
-      console.error('Failed to start conversation:', error);
-      setError('Failed to start conversation. Check microphone permissions.');
+      console.error('Error starting conversation:', error);
+      setError('Error starting conversation.');
     }
-  }, [conversation, agentId]);
+  }, []);
+  
 
   const stopConversation = useCallback(async () => {
     await conversation.endSession();
@@ -169,9 +250,10 @@ export function Conversation() {
      {/* Main Content */}
     <div className="pt-20 p-6">
       {currentTab === 'setup' && (
-        <div className="max-w-lg mx-auto bg-gray-900 p-8 rounded-lg shadow-lg">
+        <div className="max-w-lg mx-auto bg-gray-900 p-8 rounded-lg shadow-lg mt-10">
           <h2 className="text-3xl text-center mb-6">Setup</h2>
-
+          <br> 
+          </br>
           {error && <div className="bg-red-600 p-4 rounded-md mb-4">{error}</div>}
 
           <div className="space-y-6">
@@ -230,7 +312,7 @@ export function Conversation() {
       )}
 
       {currentTab === 'conversation' && (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center mt-10">
           <div>
             <Image src="/BetterYou.png" alt="Listening" width={300} height={300} />
           </div>

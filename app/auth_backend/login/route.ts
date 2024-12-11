@@ -8,54 +8,41 @@ connectToMongoDB();
 
 export async function POST(request: NextRequest) {
 	try {
-		// 1- grab the data inside the request
-		const reqBody = await request.json();
-		// 1.1 destructure the data
-		const { email, password } = reqBody;
-		console.log(reqBody);
+		// Parse request body
+		const { email, password } = await request.json();
 
-		// 2- check if this user exists by checking it's email before login
+		// Check user existence
 		const user = await User.findOne({ email });
-		// no valid user
 		if (!user) {
-			return NextResponse.json(
-				{
-					error: 'User does not exist in DB',
-				},
-				{ status: 400 }
-			);
+			return NextResponse.json({ error: 'User does not exist' }, { status: 400 });
 		}
-		console.log(user);
 
-		// 3- check if the password is correct
-		// password is coming from the request
-		// user.password is coming from the DB
+		// Verify password
 		const validPassword = await bcryptjs.compare(password, user.password);
-		// not valid password
 		if (!validPassword) {
 			return NextResponse.json({ error: 'Invalid password' }, { status: 400 });
 		}
 
-		// 4- create the TOKEN data
+		// Create JWT payload
 		const tokenData = {
 			id: user._id,
 			username: user.username,
 			email: user.email,
+			
 		};
+		//check for session data
+		 console.log("Token Data:", tokenData);
+		// Sign JWT token
+		const token = jwt.sign(tokenData, process.env.TOKEN_SECRET!, { expiresIn: '2d' });
 
-		// 4.1 - create TOKEN
-		const token = await jwt.sign(tokenData, process.env.TOKEN_SECRET!, {
-			expiresIn: '2d',
+		// Set token in cookies
+		const response = NextResponse.json({ message: 'Login Successful', success: true });
+		response.cookies.set('token', token, {
+			httpOnly: true,
+			secure: process.env.NODE_ENV === 'production', // Secure in production
+			maxAge: 2 * 24 * 60 * 60, // 2 days
+			sameSite: 'lax',
 		});
-
-		// user's cookies
-		const response = NextResponse.json({
-			message: 'Login Successful',
-			success: true,
-		});
-
-		// 4.2- send TOKEN to user's cookies
-		response.cookies.set('token', token, { httpOnly: true });
 		return response;
 	} catch (error: any) {
 		return NextResponse.json({ error: error.message }, { status: 500 });

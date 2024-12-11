@@ -1,33 +1,51 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
-import User from "@/models/User";
-import { connectToMongoDB } from "@/dbConfig/dbconfig";
+import { NextRequest, NextResponse } from 'next/server';
+import jwt from 'jsonwebtoken';
+import { connectToMongoDB } from '@/dbConfig/dbconfig';
+import User from '@/models/User';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Authenticate the user
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    // Step 1: Retrieve token from cookies
+    const token = request.cookies.get('token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
     }
 
-    // Connect to the database
+    // Step 2: Verify the token
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, process.env.TOKEN_SECRET!);
+    } catch (err) {
+      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
+    }
+
+    console.log("Decoded Token:", decodedToken);
+
+    // Step 3: Connect to MongoDB
     await connectToMongoDB();
 
-    // Retrieve the user details
-    const user = await User.findOne({ email: session.user.email });
+    // Step 4: Fetch user details from the database
+    const { email } = decodedToken as { email: string };
+    const user = await User.findOne({ email });
+
     if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Return the API key and Agent ID
+    // Step 5: Return user details
     return NextResponse.json({
-      elevenlabsapi: user.elevenlabsapi || null,
-      elevenlabsagentid: user.elevenlabsagentid || null,
+      message: 'User fetched successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        elevenlabsapi: user.elevenlabsapi || null,
+        elevenlabsagentid: user.elevenlabsagentid || null,
+      },
     });
-  } catch (error) {
-    console.error("Error fetching user details:", error);
-    return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+  } catch (error: any) {
+    console.error('Error fetching user details:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

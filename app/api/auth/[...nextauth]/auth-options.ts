@@ -28,11 +28,12 @@ export const authOptions: NextAuthOptions = {
         if (!isValidPassword) {
           throw new Error("Invalid email or password");
         }
-
+        console.log("User authenticated:", user.email); // Log successful authentication
         return {
           id: user._id.toString(),
           email: user.email,
           name: user.username,
+
         };
       },
     }),
@@ -43,6 +44,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        console.log("JWT callback - user:", user); // Log user information in JWT callback
         token.id = user.id;
         token.email = user.email as string;
         token.name = user.name as string;
@@ -51,13 +53,16 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
+        console.log("Session callback - token:", token); // Log token information in session callback
         session.user = {
           id: token.id,
           email: token.email,
           name: token.name,
+
         };
       }
       return session;
     },
   },
+  secret: process.env.NEXTAUTH_SECRET, // REQUIRED
 };
