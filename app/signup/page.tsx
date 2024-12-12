@@ -7,6 +7,7 @@ import axios from 'axios';
 import Image from 'next/image'; // Import the Image component
 import { FaAngleLeft } from 'react-icons/fa6';
 import { signIn } from 'next-auth/react';
+import Footer from '../components/Footer';
 
 export default function SignUpPage() {
   const [successMessage, setSuccessMessage] = React.useState('');
@@ -66,19 +67,9 @@ export default function SignUpPage() {
   }, [user]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-pink-500 to-black py-6 px-4 sm:px-8 text-white">
-      {/* Logo */}
-      {/* <div className="w-[150px] h-[150px] mb-6">
-        <Image
-          src="/mirailogo.png" // Path to the logo in the public folder
-          alt="Mirai Logo"
-          width={100}
-          height={100}
-          className="object-contain"
-        />
-      </div> */}
+    <div className="flex flex-col items-center justify-center min-h-screen py-6 px-4 sm:px-8 text-white mt-10">
 
-      <h1 className="py-2 text-2xl font-semibold text-black sm:text-5xl">Mirai</h1>
+      <h1 className="py-2 text-2xl font-semibold text-white sm:text-5xl">Mirai</h1>
       <h2 className="py-10 text-2xl font-semibold sm:text-3xl">
         {loading ? "We're logging you in..." : 'Register'}
       </h2>
@@ -131,11 +122,12 @@ export default function SignUpPage() {
         </p>
       </Link>
 
-      <Link href="/">
+      <Link href="/home">
         <p className="mt-8 opacity-50 text-white text-center">
-          <FaAngleLeft className="inline mr-1 text-white" /> Back to the Homepage
+          <FaAngleLeft className="inline mr-1 text-white" /> Skip Authentication
         </p>
       </Link>
+      <Footer />
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { FaAngleLeft } from 'react-icons/fa6';
 import { useState } from 'react';
+import Footer from '../components/Footer';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,8 +44,8 @@ export default function LoginPage() {
   }, [user]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-pink-500 to-black py-2 text-white">
-      <h1 className="py-2 text-4xl font-semibold text-black">
+    <div className="flex flex-col items-center justify-center min-h-screen py-2 text-white mt-20">
+      <h1 className="py-2 text-4xl font-semibold text-white">
         Mirai
         </h1>
       <h2 className="py-10 mb-5 text-2xl font-semibold">
@@ -93,9 +94,10 @@ export default function LoginPage() {
 
       <Link href="/home">
         <p className="mt-8 opacity-50 text-white">
-          <FaAngleLeft className="inline mr-1 text-white" /> Back to the Homepage
+          <FaAngleLeft className="inline mr-1 text-white" /> Skip Authentication
         </p>
       </Link>
+      <Footer />
     </div>
   );
 }
