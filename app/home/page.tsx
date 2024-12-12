@@ -1,13 +1,37 @@
-//home page calling Conversation component
-import React from 'react';
-import { Conversation } from '../components/conversation';
+'use client';
 
-export default function Main() {
+import { useState } from 'react';
+import Setup from '../components/Setup';
+import ConversationTab from '../components/Conversation';
+
+export default function Page() {
+  const [currentTab, setCurrentTab] = useState('setup');
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-6 sm:p-12 md:p-24 bg-black">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
-        <Conversation />
+    <div className="min-h-screen bg-black text-white">
+      {/* Tabs */}
+      <div className="fixed top-0 left-0 right-0 z-50 shadow-md flex items-center justify-between px-6 py-4">
+        <div className="text-2xl font-bold">Mirai</div>
+        <div className="flex space-x-6">
+          <button
+            onClick={() => setCurrentTab('setup')}
+            className={`px-6 py-2 rounded-md ${currentTab === 'setup' ? 'scale-105' : ''}`}
+          >
+            Setup
+          </button>
+          <button
+            onClick={() => setCurrentTab('conversation')}
+            className={`px-6 py-2 rounded-md ${currentTab === 'conversation' ? 'scale-105' : ''}`}
+          >
+            Conversation
+          </button>
+        </div>
       </div>
-    </main>
+
+      {/* Tab Content */}
+      <div className="pt-20 p-6">
+        {currentTab === 'setup' ? <Setup /> : <ConversationTab />}
+      </div>
+    </div>
   );
 }

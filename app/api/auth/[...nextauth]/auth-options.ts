@@ -53,7 +53,7 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
-        console.log("Session callback - token:", token); // Log token information in session callback
+        // console.log("Session callback - token:", token); // Log token information in session callback
         session.user = {
           id: token.id,
           email: token.email,

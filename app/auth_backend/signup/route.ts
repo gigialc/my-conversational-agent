@@ -1,24 +1,24 @@
 import { connectToMongoDB } from '@/dbConfig/dbconfig';
-
 import User from '@/models/User';
-
 import { NextRequest, NextResponse } from 'next/server';
-
 import bcryptjs from 'bcryptjs';
 
 connectToMongoDB();
 
-// POST route (Create a new user inside the DB)
 export async function POST(request: NextRequest) {
   try {
     // Grab data from body
     const reqBody = await request.json();
-
-    // Destructure the incoming variables
     const { username, email, password } = reqBody;
 
-    // REMOVE IN PRODUCTION
-    console.log(reqBody);
+    if (!username || !email || !password) {
+      return NextResponse.json(
+        { error: 'Username, email, and password are required.' },
+        { status: 400 }
+      );
+    }
+
+    console.log('Incoming Request:', reqBody);
 
     // Check if email or username already exists
     const existingUser = await User.findOne({
@@ -28,9 +28,7 @@ export async function POST(request: NextRequest) {
     if (existingUser) {
       const conflictField = existingUser.email === email ? 'email' : 'username';
       return NextResponse.json(
-        {
-          error: `A user with this ${conflictField} already exists.`,
-        },
+        { error: `A user with this ${conflictField} already exists.` },
         { status: 400 }
       );
     }
@@ -55,6 +53,10 @@ export async function POST(request: NextRequest) {
       savedUser,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('Signup Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }
