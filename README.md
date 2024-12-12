@@ -70,4 +70,9 @@ npm run dev
 # Visit http://localhost:3000 to experience your personalized AI assistant.
 ```
 
+---
+## ❤️  **Credits**
+Developed with ❤️ by Georgina Alcaraz ✨
+
+
 
