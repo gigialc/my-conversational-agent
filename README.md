@@ -31,18 +31,19 @@ Welcome to your **AI-Powered Personal Coach**! This assistant leverages advanced
 
 ---
 
-## 📦 **Environment Variables**
- **Add the following environment variables to your .env.local file:**
+## 📦 **Environment Variables**  
+**Add the following environment variables to your `.env.local` file:**
 
-MongoDB Connection String
+```bash
+# MongoDB Connection String
 MONGO_URI=
 
-NextAuth Secrets (for Authentication)
+# NextAuth Secrets (for Authentication)
 TOKEN_SECRET=
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=
 
-Vapi Server Webhook
+# Vapi Server Webhook
 NEXT_PUBLIC_SERVER_URL=https://your-vapi-webhook-url/api/webhook
 
 ---
@@ -86,9 +87,5 @@ Visit http://localhost:3000 to experience your personalized AI assistant.
   to rewire negative thought patterns into positive habits.
 
 ## ❤️ **Credits**
-
-AI Voice Cloning     : ElevenLabs 🔊
-Conversational Memory: Vapi 🤖
-Database             : MongoDB 🗃️
-Developed by         : Georgina Alcaraz ✨
+Developed by Georgina Alcaraz ✨
 
