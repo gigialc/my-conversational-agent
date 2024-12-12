@@ -1,4 +1,4 @@
-# 🧘 **AI Personal Development Assistant**
+# 🧘 **Mirai🪞**
 
 Welcome to your **AI-Powered Personal Coach**! This assistant leverages advanced **AI voice cloning** technology to provide personalized daily affirmations that empower self-confidence, motivation, and mental wellbeing. 🧠💡  
 
