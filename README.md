@@ -45,4 +45,10 @@ NEXTAUTH_SECRET=
 
 # Vapi Server Webhook
 NEXT_PUBLIC_SERVER_URL=https://your-vapi-webhook-url/api/webhook
+```bash
+
+---
+
+## 📦 **Environment Variables**
+
 
