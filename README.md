@@ -32,9 +32,10 @@ Welcome to your **AI-Powered Personal Coach**! This assistant leverages advanced
 ---
 
 ```bash
-# 📦 Environment Variables
+## 📦 Environment Variables
 # Add the following environment variables to your .env.local file:
 
+```bash
 # MongoDB Connection String
 MONGO_URI=
 
