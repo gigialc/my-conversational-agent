@@ -31,11 +31,9 @@ Welcome to your **AI-Powered Personal Coach**! This assistant leverages advanced
 
 ---
 
-## 📦 **Environment Variables**
+# 📦 Environment Variables
+# Add the following environment variables to your .env.local file:
 
-Add the following environment variables to your `.env.local` file:
-
-```bash
 # MongoDB Connection String
 MONGO_URI=
 
@@ -47,11 +45,8 @@ NEXTAUTH_SECRET=
 # Vapi Server Webhook
 NEXT_PUBLIC_SERVER_URL=https://your-vapi-webhook-url/api/webhook
 
----
+# ⚙️ Setup Instructions
 
-## ⚙️ **Setup Instructions**
-
-```bash
 # 1. Clone the repository
 git clone https://github.com/gigialc/my-conversational-agent.git
 cd my-conversational-agent
@@ -68,12 +63,27 @@ npm run dev
 # 5. Open the app
 # Visit http://localhost:3000 to experience your personalized AI assistant.
 
----
+# 🎯 How It Works
 
-## ❤️ **Credits**
+# 1. Initial Setup
+- Record your sample audio to clone your voice.
+- Enter your goals and challenges to personalize the experience.
 
-```bash
-AI Voice Cloning    : ElevenLabs 🔊
+# 2. Daily Affirmations
+- Receive affirmations tailored to your goals in your own AI-generated voice.
+- Affirmations adapt based on your voice note feedback.
+
+# 3. Voice Note Journaling
+- Share your thoughts and progress through voice notes.
+- The assistant learns from your feedback to keep affirmations relevant.
+
+# 4. Backed by Psychology
+- Affirmations leverage self-affirmation theory and neuroplasticity principles
+  to rewire negative thought patterns into positive habits.
+
+# ❤️ Credits
+
+AI Voice Cloning     : ElevenLabs 🔊
 Conversational Memory: Vapi 🤖
-Database            : MongoDB 🗃️
-Developed by        : Georgina Alcaraz ✨ 
+Database             : MongoDB 🗃️
+Developed by         : Georgina Alcaraz ✨
