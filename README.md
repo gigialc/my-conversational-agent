@@ -45,26 +45,42 @@ NEXTAUTH_SECRET=
 
 # Vapi Server Webhook
 NEXT_PUBLIC_SERVER_URL=https://your-vapi-webhook-url/api/webhook
+```bash
 
 ---
 
 ## ⚙️ **Setup Instructions**
 
 **1. Clone the repository**
+
+```bash
 git clone https://github.com/gigialc/my-conversational-agent.git
 cd my-conversational-agent
+```bash
 
 **2. Install dependencies**
+
+```bash
 npm install
+```bash
 
 **3. Add environment variables**
+
+```bash
 Create a .env.local file in the root directory and add the necessary variables.
+```bash
 
 **4. Start the development server**
+
+```bash
 npm run dev
+```bash
 
 **5. Open the app**
+
+```bash
 Visit http://localhost:3000 to experience your personalized AI assistant.
+```bash
 
 ---
 
