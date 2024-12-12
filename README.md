@@ -31,61 +31,64 @@ Welcome to your **AI-Powered Personal Coach**! This assistant leverages advanced
 
 ---
 
-```bash
-## 📦 Environment Variables
-# Add the following environment variables to your .env.local file:
+## 📦 **Environment Variables**
+ **Add the following environment variables to your .env.local file:**
 
-```bash
-# MongoDB Connection String
+MongoDB Connection String
 MONGO_URI=
 
-# NextAuth Secrets (for Authentication)
+NextAuth Secrets (for Authentication)
 TOKEN_SECRET=
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=
 
-# Vapi Server Webhook
+Vapi Server Webhook
 NEXT_PUBLIC_SERVER_URL=https://your-vapi-webhook-url/api/webhook
 
-# ⚙️ Setup Instructions
+---
 
-# 1. Clone the repository
+## ⚙️ **Setup Instructions**
+
+**1. Clone the repository**
 git clone https://github.com/gigialc/my-conversational-agent.git
 cd my-conversational-agent
 
-# 2. Install dependencies
+**2. Install dependencies**
 npm install
 
-# 3. Add environment variables
-# Create a .env.local file in the root directory and add the necessary variables.
+**3. Add environment variables**
+Create a .env.local file in the root directory and add the necessary variables.
 
-# 4. Start the development server
+**4. Start the development server**
 npm run dev
 
-# 5. Open the app
-# Visit http://localhost:3000 to experience your personalized AI assistant.
+**5. Open the app**
+Visit http://localhost:3000 to experience your personalized AI assistant.
 
-# 🎯 How It Works
+---
 
-# 1. Initial Setup
+## 🎯 **How It Works**
+
+**1. Initial Setup**
 - Record your sample audio to clone your voice.
 - Enter your goals and challenges to personalize the experience.
 
-# 2. Daily Affirmations
+**2. Daily Affirmations**
 - Receive affirmations tailored to your goals in your own AI-generated voice.
 - Affirmations adapt based on your voice note feedback.
 
-# 3. Voice Note Journaling
+**3. Voice Note Journaling**
 - Share your thoughts and progress through voice notes.
 - The assistant learns from your feedback to keep affirmations relevant.
 
-# 4. Backed by Psychology
+**4. Backed by Psychology**
 - Affirmations leverage self-affirmation theory and neuroplasticity principles
   to rewire negative thought patterns into positive habits.
 
-# ❤️ Credits
+## ❤️ **Credits**
 
 AI Voice Cloning     : ElevenLabs 🔊
 Conversational Memory: Vapi 🤖
 Database             : MongoDB 🗃️
 Developed by         : Georgina Alcaraz ✨
+
