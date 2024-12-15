@@ -7,7 +7,7 @@ import axios from 'axios';
 import Image from 'next/image'; // Import the Image component
 import { FaAngleLeft } from 'react-icons/fa6';
 import { signIn } from 'next-auth/react';
-import Footer from '../components/Footer';
+import Footer from '../../components/Footer';
 
 export default function SignUpPage() {
   const [successMessage, setSuccessMessage] = React.useState('');

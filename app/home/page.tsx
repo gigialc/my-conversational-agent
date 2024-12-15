@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import Setup from '../components/Setup';
-import Conversation from '../components/Conversation'
+import Setup from '../../components/Setup';
+import Conversation from '../../components/Conversation'
 
 export default function Page() {
   const [currentTab, setCurrentTab] = useState('setup');

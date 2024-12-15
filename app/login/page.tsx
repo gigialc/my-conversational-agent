@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { FaAngleLeft } from 'react-icons/fa6';
 import { useState } from 'react';
-import Footer from '../components/Footer';
+import Footer from '../../components/Footer';
 
 export default function LoginPage() {
   const router = useRouter();
