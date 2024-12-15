@@ -29,6 +29,11 @@ const userSchema = new mongoose.Schema(
       type: String, // Stores the cloned voice agent ID
       sparse: true, // Allows multiple null values
     },
+    vapiAssistantId: {
+      type: String,
+      sparse: true,
+      default: null,
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt fields

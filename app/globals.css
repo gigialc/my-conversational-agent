@@ -32,3 +32,40 @@ body {
 .pulse-animation {
   animation: pulse 1.5s infinite;
 }
+
+body {
+  margin: 0;
+  background-color: #010810;
+  font-family: "Inter", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+p {
+  margin: 0;
+  padding: 0;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0); /* Resting position */
+    animation-timing-function: ease-in-out; /* Smooth in and out */
+  }
+  30% {
+    transform: translateY(-80px); /* Higher upward bounce */
+    animation-timing-function: ease-in; /* Slows down as it reaches the peak */
+  }
+  50% {
+    transform: translateY(-60px); /* Intermediate bounce */
+    animation-timing-function: ease-out; /* Speeds up as it goes down */
+  }
+}
+
+.bounce {
+  animation: bounce 1.8s infinite; /* Slightly longer duration for dramatic effect */
+}
+
+/* .rounded-full {
+  border-radius: 50%; 
+} */

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Setup from '../components/Setup';
-import ConversationTab from '../components/Conversation';
+import Conversation from '../components/Conversation';
 
 export default function Page() {
   const [currentTab, setCurrentTab] = useState('setup');
@@ -30,7 +30,7 @@ export default function Page() {
 
       {/* Tab Content */}
       <div className="pt-20 p-6">
-        {currentTab === 'setup' ? <Setup /> : <ConversationTab />}
+        {currentTab === 'setup' ? <Setup /> : <Conversation />}
       </div>
     </div>
   );

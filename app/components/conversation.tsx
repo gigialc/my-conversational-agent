@@ -1,40 +1,91 @@
-import { useConversation } from '@11labs/react';
-import Image from 'next/image';
-import Footer from './Footer';
+import Vapi from "@vapi-ai/web";
+import { useState, useEffect } from "react";
+
+const vapi = new Vapi(process.env.VAPI_PROJECT_ID!); // TODO: change to env variable
 
 export default function Conversation() {
-  const conversation = useConversation({
-    apiKey: '',
-    agentId: '',
-    onConnect: () => console.log('Connected'),
-    onMessage: (message) => console.log('Message:', message),
-  });
+  const [voiceId, setVoiceId] = useState<string | null>(null);
+  const [vapiAssistantId, setVapiAssistantId] = useState<string | null>(null);
 
-  
+  useEffect(() => {
+    fetchVoiceId();
+  }, []);
+
+  const fetchVoiceId = async () => {
+    try {
+      const response = await fetch('/api/getVoiceId', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      setVoiceId(data.voiceId);
+      return data.voiceId;
+    } catch (error) {
+      console.error('Failed to fetch voiceId:', error);
+      return null;
+    }
+  };
+
+  const createAssistant = async () => {
+    try {
+      console.log("Creating assistant");
+      const response = await fetch('/api/create-assistant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create assistant');
+      }
+      const data = await response.json();
+      setVapiAssistantId(data.vapiAssistantid);
+      console.log("Assistant ID:", data.vapiAssistantid);
+      return data.vapiAssistantid;
+    } catch (error) {
+      console.error('Error creating assistant:', error);
+      return null;
+    }
+  };
+
+  const handleStartCall = async () => {
+    if (!vapiAssistantId) {
+      const newAssistantId = await createAssistant();
+      if (newAssistantId) {
+        vapi.start(newAssistantId);
+      }
+    } else {
+      vapi.start(vapiAssistantId);
+    }
+  };
+
+  const handleStopCall = () => {
+    vapi.stop();
+  };
 
   return (
-    <div className="flex flex-col items-center mt-10">
-      {/* Image Section */}
-      <div className="mt-10">
-        <Image src="/BetterYou.png" alt="Listening" width={300} height={300} />
-      </div>
-
-      {/* Buttons Section */}
-      <div className="mt-10 flex gap-6">
+    <div className="bg-black min-h-screen flex items-center justify-center">
+      <div className="flex flex-col items-center">
+        <img
+          src="BetterYou.png"
+          alt="Better You"
+          onClick={voiceId ? handleStartCall : undefined}
+          className={`cursor-pointer w-[300px] h-auto rounded-full bounce mb-4 ${
+            !voiceId ? "opacity-50 cursor-not-allowed" : ""
+          }`}
+        />
         <button
-          onClick={() => conversation.startSession()}
-          className="px-6 py-2 bg-green-500 rounded-full text-white hover:bg-green-600 transition"
+          onClick={handleStopCall}
+          className="mt-4 p-2 bg-red-500 text-white rounded-full"
         >
-          Start
-        </button>
-        <button
-          onClick={() => conversation.endSession()}
-          className="px-6 py-2 bg-red-500 rounded-full text-white hover:bg-red-600 transition"
-        >
-          Stop
+          Stop Call
         </button>
       </div>
-      <Footer />
     </div>
   );
 }
