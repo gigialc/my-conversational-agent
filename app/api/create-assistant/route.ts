@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
             { 
               role: "system", 
               content: "You are a helpful personal assistant." 
-            }
+            },
           ]
         },
         voice: {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       user.vapiAssistantId = vapiResponse.data.id; // Update with the new ID
       await user.save(); // Save the user with the new field
       console.log("User Updated with Assistant ID:", user);
-      return NextResponse.json({ vapiAssistantid: user.vapiAssistantId }, { status: 200 });
+      return NextResponse.json({ vapiAssistantId: user.vapiAssistantId }, { status: 200 });
 
     } catch (error: any) {
       console.error('Error creating Vapi assistant:', error.response?.data || error.message);
@@ -72,8 +72,7 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
   } else {
-    return NextResponse.json({ vapiAssistantid: user.vapiAssistantId }, { status: 200 });
+    return NextResponse.json({ vapiAssistantId: user.vapiAssistantId }, { status: 200 });
   }
 
-  return NextResponse.json({ error: 'Unexpected error occurred' }, { status: 500 });
 }
