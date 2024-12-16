@@ -1,12 +1,12 @@
 import Vapi from "@vapi-ai/web";
 import { useState, useEffect } from "react";
 
-const vapi = new Vapi(process.env.VAPI_PROJECT_ID!); // TODO: change to env variable
 
 const INITIAL_MESSAGE = "Hello! I'm here as your ideal self - the confident, motivated version of you that knows your true potential. How can I help you shine today?";
 
 export default function Conversation() {
   const [vapiAssistantId, setVapiAssistantId] = useState<string | null>(null);
+  const vapi = new Vapi("80895bf2-66fd-4a71-9c6c-3dcef783c644"); // TODO: change to env variable
 
   useEffect(() => {
     fetchVoiceId();
