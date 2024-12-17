@@ -8,20 +8,46 @@ connectToMongoDB();
 
 export async function POST(request: NextRequest) {
 	try {
-		// Parse request body
-		const { email, password } = await request.json();
+		// Grab data from body
+		const reqBody = await request.json();
+		console.log('Login Request Body:', reqBody); // Debugging statement
 
-		// Check user existence
+		const { email, password } = reqBody;
+
+		if (!email || !password) {
+			console.log('Validation Error: Missing fields'); // Debugging statement
+			return NextResponse.json(
+				{ error: 'Email and password are required.' },
+				{ status: 400 }
+			);
+		}
+
+		// Check if user exists
 		const user = await User.findOne({ email });
+		console.log('User Found:', user); // Debugging statement
+
 		if (!user) {
-			return NextResponse.json({ error: 'User does not exist' }, { status: 400 });
+			console.log('Login Error: User not found'); // Debugging statement
+			return NextResponse.json(
+				{ error: 'Email or password incorrect, please try again.' },
+				{ status: 401 }
+			);
 		}
 
-		// Verify password
-		const validPassword = await bcryptjs.compare(password, user.password);
-		if (!validPassword) {
-			return NextResponse.json({ error: 'Invalid password' }, { status: 400 });
+		// Check password
+		const isPasswordValid = await bcryptjs.compare(password, user.password);
+		console.log('Password Validity:', isPasswordValid); // Debugging statement
+
+		if (!isPasswordValid) {
+			console.log('Login Error: Incorrect password'); // Debugging statement
+			return NextResponse.json(
+				{ error: 'Email or password incorrect, please try again.' },
+				{ status: 401 }
+			);
 		}
+
+		// Successful login
+		console.log('Login Successful for:', user.email); // Debugging statement
 
 		// Create JWT payload
 		const tokenData = {
@@ -45,6 +71,10 @@ export async function POST(request: NextRequest) {
 		});
 		return response;
 	} catch (error: any) {
-		return NextResponse.json({ error: error.message }, { status: 500 });
+		console.error('Login Error:', error);
+		return NextResponse.json(
+			{ error: error.message || 'Internal Server Error' },
+			{ status: 500 }
+		);
 	}
 }

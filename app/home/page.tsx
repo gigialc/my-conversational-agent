@@ -3,9 +3,19 @@
 import { useState } from 'react';
 import Setup from '../../components/Setup';
 import Conversation from '../../components/Conversation'
+import {signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
-export default function Page() {
+export default function Home() {
   const [currentTab, setCurrentTab] = useState('setup');
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+  console.log('Signing out');
+  localStorage.removeItem('token');
+  await signOut();
+  router.push('/login');
+  };
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -24,6 +34,12 @@ export default function Page() {
             className={`px-6 py-2 rounded-md ${currentTab === 'conversation' ? 'scale-105' : ''}`}
           >
             Conversation
+          </button>
+          <button
+            onClick={handleSignOut}
+            className="px-6 py-2 rounded-md"
+          >
+            Sign Out
           </button>
         </div>
       </div>

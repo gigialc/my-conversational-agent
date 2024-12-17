@@ -22,16 +22,21 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
     elevenlabsapi: {
-      type: String, // Optional field, no need for `required: false`
-      sparse: true, // Ignore null or missing fields for uniqueness
+      type: String,
+      required: false,
+      index: false,  // Explicitly prevent indexing
+      default: null,
     },
     elevenlabsagentid: {
-      type: String, // Stores the cloned voice agent ID
-      sparse: true, // Allows multiple null values
+      type: String,
+      required: false,
+      index: false,  // Explicitly prevent indexing
+      default: null,
     },
     vapiAssistantId: {
       type: String,
-      sparse: true,
+      required: false,
+      index: false,  // Explicitly prevent indexing
       default: null,
     },
   },
