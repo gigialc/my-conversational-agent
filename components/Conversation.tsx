@@ -24,13 +24,17 @@ export default function Conversation() {
         throw new Error('Failed to fetch Vapi Assistant ID');
       }
       const data = await response.json();
-      setVapiAssistantId(data.vapiAssistantId);
-      console.log("Vapi Assistant ID:", data.vapiAssistantId);
-      return data.vapiAssistantId;
-    } catch (error) {
-      console.error('Failed to fetch Vapi Assistant ID:', error);
+     // Only set and return if vapiAssistantId exists and is not null
+      if (data.vapiAssistantId) {
+        setVapiAssistantId(data.vapiAssistantId);
+        console.log("Vapi Assistant ID:", data.vapiAssistantId);
+        return data.vapiAssistantId;
+      }
       return null;
-    }
+    } catch (error) {
+     console.error('Failed to fetch Vapi Assistant ID:', error);
+    return null;
+  }
   };
 
   const createAssistant = async () => {

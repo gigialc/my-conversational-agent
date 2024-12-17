@@ -40,8 +40,8 @@ export async function GET(request: NextRequest) {
         id: user._id,
         email: user.email,
         username: user.username,
-        elevenlabsapi: user.elevenlabsapi || null,
-        elevenlabsagentid: user.elevenlabsagentid || null,
+        elevenlabsapi: user.elevenlabsapi,
+        elevenlabsagentid: user.elevenlabsagentid,
       },
     });
   } catch (error: any) {
