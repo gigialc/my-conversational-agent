@@ -100,6 +100,11 @@ export default function Conversation() {
   return (
     <div className="bg-black min-h-screen flex items-center justify-center">
       <div className="flex flex-col items-center">
+        {!vapiAssistantId && (
+          <div className="text-white text-center mb-6 p-4 rounded-lg bg-pink-600">
+            Please set your API keys and clone your voice in setup first!!
+          </div>
+        )}
         <img
           src="BetterYou.png"
           alt="Better You"
