@@ -1,3 +1,4 @@
+"use client"
 import Vapi from "@vapi-ai/web";
 import { useState, useEffect } from "react";
 
@@ -16,6 +17,7 @@ export default function Conversation() {
     checkCredentialsAndSetup();
   }, []);
 
+  //fetching voice id from backend
   const checkCredentialsAndSetup = async () => {
     try {
       setIsLoading(true);
@@ -42,6 +44,7 @@ export default function Conversation() {
     }
   };
 
+  //creating assistant
   const createAssistant = async () => {
     try {
       console.log("Creating new Vapi assistant");
@@ -81,6 +84,7 @@ export default function Conversation() {
     }
   };
 
+  //starting call
   const handleStartCall = async () => {
     try {
       setIsCallStarting(true);

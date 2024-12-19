@@ -1,27 +1,31 @@
+'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import { useSession } from 'next-auth/react';
 
 interface UserDetailsFormProps {
   audioBlob: Blob | null;
-  setVoiceCloningStatus: (status: string) => void;
 }
 
-export default function UserDetailsForm({ audioBlob, setVoiceCloningStatus }: UserDetailsFormProps) {
-  const [email, setEmail] = useState('');
-  const [apiKey, setApiKey] = useState('');
+export default function UserDetailsForm({ audioBlob }: UserDetailsFormProps) {
+  const [elevenlabsagentid, setElevenLabsAgentId] = useState('');
+  const [elevenlabsapi, setElevenLabsApi] = useState('');
   const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
+  const { data: session } = useSession();
 
   const saveUserDetails = async () => {
-    if (!email || !apiKey || !audioBlob) {
+    if (!audioBlob || !elevenlabsapi) {
       setError('Email, API key, and audio file are required');
       return;
     }
   
     try {
-      const voiceId = await cloneVoice(); // Step 1: Clone the voice
+      const voiceId = await cloneVoice();
       if (voiceId) {
-        await postVoiceDetailsToBackend(voiceId); // Step 2: Save to backend
-        setVoiceCloningStatus('Voice cloned and details saved successfully!');
+        await postVoiceDetailsToBackend(elevenlabsapi, voiceId);
+        setStatus('Voice cloned and details saved successfully!');
         setError('');
       }
     } catch (err) {
@@ -34,12 +38,12 @@ export default function UserDetailsForm({ audioBlob, setVoiceCloningStatus }: Us
   const cloneVoice = async (): Promise<string | null> => {
     try {
       const formData = new FormData();
-      formData.append('name', email);
+      formData.append('name',"Georgina");
       formData.append('files', audioBlob as Blob, 'recording.wav');
   
       const response = await fetch('https://api.elevenlabs.io/v1/voices/add', {
         method: 'POST',
-        headers: { 'xi-api-key': apiKey },
+        headers: { 'xi-api-key': elevenlabsapi },
         body: formData,
       });
   
@@ -55,7 +59,7 @@ export default function UserDetailsForm({ audioBlob, setVoiceCloningStatus }: Us
         throw new Error('Voice ID not returned by ElevenLabs API');
       }
   
-      setVoiceCloningStatus('Voice cloned successfully!');
+      setStatus('Voice cloned successfully!');
       console.log('Voice cloned successfully:', voiceId);
       return voiceId;
     } catch (err) {
@@ -66,28 +70,33 @@ export default function UserDetailsForm({ audioBlob, setVoiceCloningStatus }: Us
   };
   
   // Function to post voice_id and apiKey to backend
-  const postVoiceDetailsToBackend = async (voiceId: string) => {
+  const postVoiceDetailsToBackend = async (elevenlabsapi: string, voiceId: string) => {
     try {
+      console.log("Sending to backend:", { elevenlabsapi, elevenlabsagentid: voiceId }); // Debug log
       const response = await fetch('/api/updateUserDetails', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          apiKey,
-          elevenlabsagentid: voiceId,
+          elevenlabsapi,
+          elevenlabsagentid: voiceId
         }),
+        credentials: 'include'
       });
-  
+
       if (!response.ok) {
-        const backendError = await response.text();
-        throw new Error(`Failed to save to backend: ${backendError}`);
+        const data = await response.json();
+        console.error("Backend response error:", data); // Debug log
+        throw new Error(`Failed to save to backend: ${JSON.stringify(data)}`);
       }
-  
-      console.log('User details saved to backend successfully');
-    } catch (err) {
-      console.error('Backend save error:', err);
-      throw new Error('Failed to save user details to backend.');
+
+      const data = await response.json();
+      console.log("Backend save successful:", data);
+      return data;
+    } catch (error) {
+      console.error("Backend save error:", error);
+      throw error;
     }
   };
   
@@ -96,20 +105,11 @@ export default function UserDetailsForm({ audioBlob, setVoiceCloningStatus }: Us
   return (
     <div className="space-y-6 mt-5">
       <div>
-        <label>Email</label>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2 rounded-md bg-gray-800 text-white border"
-        />
-      </div>
-      <div>
         <label>Eleven Labs API key</label>
         <input
           type="text"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
+          value={elevenlabsapi}
+          onChange={(e) => setElevenLabsApi(e.target.value)}
           className="w-full px-3 py-2 rounded-md bg-gray-800 text-white border"
         />
       </div>
@@ -118,6 +118,7 @@ export default function UserDetailsForm({ audioBlob, setVoiceCloningStatus }: Us
         Save and Clone Voice
       </button>
       {error && <div className="bg-red-600 p-4 rounded-md mt-4">{error}</div>}
+      {status && <div className="bg-green-600 p-4 rounded-md mt-4">{status}</div>}
     </div>
   );
 }

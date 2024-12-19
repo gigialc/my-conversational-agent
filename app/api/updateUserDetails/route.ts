@@ -1,51 +1,66 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/auth-options";
+import { NextResponse } from "next/server";
 import { connectToMongoDB } from "@/dbConfig/dbconfig";
 import User from "@/models/User";
-import { NextResponse } from "next/server";
+import jwt from 'jsonwebtoken';
+import { NextRequest } from "next/server";
 
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    // Authenticate user session
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user?.email) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    await connectToMongoDB();
+    const token = request.cookies.get('token')?.value;
+    console.log("Token received:", token);
+
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
     }
 
-    // Parse body
-    const body = await req.json();
-    const { apiKey, elevenlabsagentid } = body;
-    const email = session.user.email; // Email comes from the session
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, process.env.TOKEN_SECRET!);
+      console.log("Decoded Token:", decodedToken);
+    } catch (err) {
+      console.error("Token verification error:", err);
+      return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
+    }
 
-    // Validate input
-    if (!email || !apiKey || !elevenlabsagentid) {
+    const { email } = decodedToken as { email: string };
+    const existingUser = await User.findOne({ email });
+
+    if (!existingUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    const body = await request.json();
+    console.log("Request body:", body);
+    
+    const { elevenlabsapi, elevenlabsagentid } = body;
+
+    if (!elevenlabsapi || !elevenlabsagentid) {
       return NextResponse.json(
-        { message: "Email, API key, and agent ID are required" },
+        { message: "API key and agent ID are required" },
         { status: 400 }
       );
     }
 
-    console.log("Request Payload:", { email, apiKey, elevenlabsagentid });
-
-    // Connect to MongoDB
-    await connectToMongoDB();
-
-    // Find or update user
-    const user = await User.findOneAndUpdate(
-      { email: email }, // Find the user by email
+    // Update user with new details
+    const updatedUser = await User.findOneAndUpdate(
+      { email },
       {
         $set: {
-          elevenlabsapi: apiKey, // Update or set API Key
-          elevenlabsagentid: elevenlabsagentid, // Update or set Agent ID
-          updatedAt: new Date(), // Optional: Track last update
+          elevenlabsapi,
+          elevenlabsagentid,
+          updatedAt: new Date(),
         },
       },
-      { upsert: true, new: true } // Create if not found, return updated document
+      { new: true }
     );
 
-    console.log("User Updated/Created:", user);
+    console.log("User Updated:", updatedUser);
+    return NextResponse.json({ 
+      message: "Settings saved successfully", 
+      user: updatedUser
+    });
 
-    return NextResponse.json({ message: "Settings saved successfully", user });
   } catch (error) {
     console.error("Error in updateUserDetails API:", error);
     return NextResponse.json(

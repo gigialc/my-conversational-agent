@@ -19,8 +19,7 @@ export default function Setup() {
           <audio controls src={audioUrl}></audio>
         </div>
       )}
-      <UserDetailsForm audioBlob={audioBlob} setVoiceCloningStatus={setVoiceCloningStatus} />
-      {voiceCloningStatus && <p className="mt-4 text-center">{voiceCloningStatus}</p>}
+      <UserDetailsForm audioBlob={audioBlob} />
       <Footer />
     </div>
   );
