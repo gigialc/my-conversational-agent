@@ -5,7 +5,9 @@ import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { FaAngleLeft } from 'react-icons/fa6';
+import { FcGoogle } from 'react-icons/fc';
 import { useState } from 'react';
+import { signIn } from 'next-auth/react';
 import Footer from '../../components/Footer';
 
 export default function LoginPage() {
@@ -23,16 +25,26 @@ export default function LoginPage() {
   const onLogin = async () => {
     try {
       setLoading(true);
-      const response = await axios.post('auth_backend/login', user);
-      console.log('Login successful', response.data);
-      router.push('/home');
+      const response = await signIn('credentials', {
+        email: user.email,
+        password: user.password,
+        redirect: false,
+      });
+
+      if (response?.error) {
+        setErrorMessage('Invalid email or password');
+      } else {
+        router.push('/home');
+      }
     } catch (error: any) {
-      const message = error.response?.data?.message || 'Email or password incorrect, please try again.';
-      setErrorMessage(message); // Set the error message state
-      console.log('Login failed', message);
+      setErrorMessage('An error occurred during login');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSignIn = () => {
+    signIn('google', { callbackUrl: '/home' });
   };
 
   useEffect(() => {
@@ -47,11 +59,24 @@ export default function LoginPage() {
     <div className="flex flex-col items-center justify-center min-h-screen py-2 text-white mt-20">
       <h1 className="py-2 text-4xl font-semibold text-white">
         Mirai
-        </h1>
+      </h1>
       <h2 className="py-10 mb-5 text-2xl font-semibold">
         {loading ? "We're logging you in..." : 'Login'}
       </h2>
 
+      <button
+        onClick={handleGoogleSignIn}
+        className="w-[350px] p-3 border border-gray-300 rounded-lg mb-6 flex items-center justify-center space-x-2 hover:bg-gray-100 hover:text-black transition-colors"
+      >
+        <FcGoogle className="text-2xl" />
+        <span>Continue with Google</span>
+      </button>
+
+      <div className="w-[350px] flex items-center mb-6">
+        <div className="flex-grow border-t border-gray-300"></div>
+        <span className="px-4 text-gray-500">or</span>
+        <div className="flex-grow border-t border-gray-300"></div>
+      </div>
 
       <input
         className="w-[350px] p-3 text-black border border-gray-300 rounded-lg mb-4 focus:outline-none focus:border-gray-600"

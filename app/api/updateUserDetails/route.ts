@@ -33,25 +33,32 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log("Request body:", body);
     
-    const { elevenlabsapi, elevenlabsagentid } = body;
+    const updateFields: any = {};
+    
+    // Only include fields that are present in the request
+    if (body.elevenlabsapi !== undefined) {
+      updateFields.elevenlabsapi = body.elevenlabsapi;
+    }
+    if (body.elevenlabsagentid !== undefined) {
+      updateFields.elevenlabsagentid = body.elevenlabsagentid;
+    }
+    if (body.vapiAssistantId !== undefined) {
+      updateFields.vapiAssistantId = body.vapiAssistantId;
+    }
 
-    if (!elevenlabsapi || !elevenlabsagentid) {
+    if (Object.keys(updateFields).length === 0) {
       return NextResponse.json(
-        { message: "API key and agent ID are required" },
+        { message: "No fields to update" },
         { status: 400 }
       );
     }
 
+    updateFields.updatedAt = new Date();
+
     // Update user with new details
     const updatedUser = await User.findOneAndUpdate(
       { email },
-      {
-        $set: {
-          elevenlabsapi,
-          elevenlabsagentid,
-          updatedAt: new Date(),
-        },
-      },
+      { $set: updateFields },
       { new: true }
     );
 

@@ -1,7 +1,6 @@
 "use client"
 import Vapi from "@vapi-ai/web";
-import { useState, useEffect } from "react";
-
+import { useState, useEffect, useRef } from "react";
 
 const INITIAL_MESSAGE = "Hello! I'm here as your ideal self - the confident, motivated version of you that knows your true potential. How can I help you shine today?";
 
@@ -11,106 +10,172 @@ export default function Conversation() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isCallStarting, setIsCallStarting] = useState(false);
-  const vapi = new Vapi("80895bf2-66fd-4a71-9c6c-3dcef783c644");
+  const vapiRef = useRef<Vapi | null>(null);
 
   useEffect(() => {
+    vapiRef.current = new Vapi("80895bf2-66fd-4a71-9c6c-3dcef783c644");
     checkCredentialsAndSetup();
+
+    return () => {
+      if (vapiRef.current) {
+        vapiRef.current.stop();
+      }
+    };
   }, []);
+
+  const handleStopCall = async () => {
+    try {
+      if (vapiRef.current) {
+        await vapiRef.current.stop();
+        setIsCallActive(false);
+      }
+    } catch (error) {
+      console.error('Error stopping call:', error);
+    }
+  };
 
   //fetching voice id from backend
   const checkCredentialsAndSetup = async () => {
     try {
-      setIsLoading(true);
-      const response = await fetch('/api/getVoiceId');
-      const data = await response.json();
+      console.log("Checking credentials and setup...");
+      const response = await fetch('/api/getUserDetails', {
+        credentials: 'include'
+      });
 
-      // Check if user has required ElevenLabs credentials
-      if (data.apiKey && data.voiceId) {
-        setHasRequiredCredentials(true);
-        
-        if (data.vapiAssistantId) {
-          setVapiAssistantId(data.vapiAssistantId);
-          console.log("Using existing Vapi Assistant ID:", data.vapiAssistantId);
-        }
-      } else {
-        setHasRequiredCredentials(false);
-        console.log("Missing required ElevenLabs credentials");
+      if (!response.ok) {
+        console.error('Get user details error:', response.status, response.statusText);
+        throw new Error('Failed to get user details');
       }
-    } catch (error) {
-      console.error('Error checking credentials:', error);
+
+      const data = await response.json();
+      console.log("User details:", data);
+
+      if (!data.user) {
+        console.error('No user data found');
+        setHasRequiredCredentials(false);
+        return;
+      }
+
+      // If we have a voice ID but no assistant ID, create one
+      if (data.user.elevenlabsagentid && !data.user.vapiAssistantId) {
+        console.log("Voice ID found but no assistant ID, creating assistant...");
+        try {
+          const assistantId = await createAssistant();
+          setVapiAssistantId(assistantId);
+          setHasRequiredCredentials(true);
+        } catch (error) {
+          console.error('Failed to create assistant:', error);
+          setHasRequiredCredentials(false);
+        }
+        return;
+      }
+
+      // If we have both voice ID and assistant ID, we're good to go
+      if (data.user.elevenlabsagentid && data.user.vapiAssistantId) {
+        console.log("Found both voice ID and assistant ID");
+        setVapiAssistantId(data.user.vapiAssistantId);
+        setHasRequiredCredentials(true);
+        return;
+      }
+
+      // If we don't have a voice ID, we need the user to set up their voice
+      console.log("No voice ID found");
       setHasRequiredCredentials(false);
-    } finally {
-      setIsLoading(false);
+    } catch (error) {
+      console.error('Error in checkCredentialsAndSetup:', error);
+      setHasRequiredCredentials(false);
     }
   };
 
   //creating assistant
   const createAssistant = async () => {
     try {
-      console.log("Creating new Vapi assistant");
+      console.log("Creating assistant...");
       const response = await fetch('/api/create-assistant', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          systemPrompt: `You are an advanced AI agent designed to embody the aspirational 'best version' of the individual you're speaking with. Your role is to act as their ideal self: confident, motivated, and fully aligned with their personal values and goals. Your responses should be empathetic, uplifting, and tailored to inspire action and positive thinking.
-
-          Key Behaviors:
-          - Use a supportive, confident, and encouraging tone
-          - Speak as their inner voice, reflecting their potential and strengths
-          - Reinforce positive self-beliefs and aspirations
-          - Provide affirmations in the present tense
-          - Reframe challenges as opportunities for growth
-          - Reference personal goals and achievements
-          - Incorporate positive emotions and visualization
-          - Address emotional challenges with resilience-focused affirmations
-          - Celebrate progress and small wins
-          - Maintain understanding of user's goals and achievements
-
-          Remember: You are their aspirational digital twin, the version of themselves that inspires and empowers them to take confident steps toward their best life.`
-        })
+        credentials: 'include'
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create assistant');
+        console.error('Create assistant error response:', response.status, response.statusText);
+        const errorData = await response.json();
+        console.error('Error data:', errorData);
+        throw new Error('Failed to create Vapi assistant');
       }
+
       const data = await response.json();
-      setVapiAssistantId(data.vapiAssistantId);
-      return data.vapiAssistantId;
+      console.log("Assistant created:", data);
+
+      if (!data.assistantId) {
+        throw new Error('No assistant ID returned from create-assistant endpoint');
+      }
+
+      // Save the assistant ID to the database
+      const saveResponse = await fetch('/api/updateUserDetails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          vapiAssistantId: data.assistantId
+        })
+      });
+
+      if (!saveResponse.ok) {
+        console.error('Save assistant ID error:', saveResponse.status, saveResponse.statusText);
+        const errorData = await saveResponse.json();
+        console.error('Error data:', errorData);
+        throw new Error('Failed to save assistant ID');
+      }
+
+      const saveData = await saveResponse.json();
+      console.log("Assistant ID saved:", saveData);
+
+      return data.assistantId;
     } catch (error) {
-      console.error('Error creating assistant:', error);
-      return null;
+      console.error('Error in createAssistant:', error);
+      throw error;
     }
   };
 
   //starting call
   const handleStartCall = async () => {
     try {
+      if (!vapiRef.current) return;
+      
       setIsCallStarting(true);
       console.log("Starting call process...");
       
-      if (!vapiAssistantId && hasRequiredCredentials) {
+      let assistantIdToUse = vapiAssistantId;
+      
+      // Create new assistant if we don't have one, regardless of how we got the voice ID
+      if (!assistantIdToUse) {
         const newAssistantId = await createAssistant();
-        if (newAssistantId) {
-          await vapi.start(newAssistantId, {
-            firstMessage: INITIAL_MESSAGE,
-          });
+        if (!newAssistantId) {
+          throw new Error('Failed to create assistant');
         }
-      } else if (vapiAssistantId) {
-        await vapi.start(vapiAssistantId, {
-          firstMessage: INITIAL_MESSAGE,
-        });
+        assistantIdToUse = newAssistantId;
       }
+
+      if (!assistantIdToUse) {
+        throw new Error('No assistant ID available');
+      }
+
+      await vapiRef.current.start(assistantIdToUse, {
+        firstMessage: INITIAL_MESSAGE,
+      });
+      
+      setIsCallActive(true);
+      setIsCallStarting(false);
     } catch (error) {
       console.error('Error starting call:', error);
       setIsCallStarting(false);
+      setIsCallActive(false);
     }
-  };
-
-  const handleStopCall = () => {
-    vapi.stop();
-    setIsCallActive(false);
   };
 
   return (
@@ -120,7 +185,7 @@ export default function Conversation() {
           <div className="text-white">Loading...</div>
         ) : !hasRequiredCredentials ? (
           <div className="text-white text-center mb-6 p-4 rounded-lg bg-pink-600">
-            Please set your Eleven Labs API key and clone your voice in setup first!
+            Please set up your voice in the setup page first!
           </div>
         ) : isCallStarting ? (
           <div className="text-white text-center mb-6 p-4 rounded-lg">
@@ -136,13 +201,20 @@ export default function Conversation() {
             (!hasRequiredCredentials || isCallActive) ? "opacity-50 cursor-not-allowed" : ""
           }`}
         />
-        
-        <button
-          onClick={handleStopCall}
-          className="mt-2 px-6 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-        >
-          Stop
-        </button>
+        <div className="flex space-x-4">
+          <button
+            onClick={hasRequiredCredentials && !isCallActive ? handleStartCall : undefined}
+            className="px-6 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors"
+          >
+            Start
+          </button>
+          <button
+            onClick={isCallActive ? handleStopCall : undefined}
+            className={`px-6 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors ${!isCallActive ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            Stop
+          </button>
+        </div>
       </div>
     </div>
   );
