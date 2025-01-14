@@ -2,7 +2,7 @@
 import Vapi from "@vapi-ai/web";
 import { useState, useEffect, useRef } from "react";
 
-const INITIAL_MESSAGE = "Hello! I'm here as your ideal self - the confident, motivated version of you that knows your true potential. How can I help you shine today?";
+const INITIAL_MESSAGE = "Hello! I'm here as your ideal self - the confident, motivated version of you that knows your true potential. How would you describe the best version of yourself?";
 
 export default function Conversation() {
   const [vapiAssistantId, setVapiAssistantId] = useState<string | null>(null);
