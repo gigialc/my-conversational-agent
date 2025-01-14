@@ -43,7 +43,7 @@ export default function SignUpPage() {
         return;
       }
 
-      router.push('/login');
+      router.push('/home');
     } catch (error: any) {
       const message =
         error.response?.data?.message || 'Sign up failed, please try again.';
