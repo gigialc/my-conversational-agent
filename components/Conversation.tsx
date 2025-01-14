@@ -2,7 +2,25 @@
 import Vapi from "@vapi-ai/web";
 import { useState, useEffect, useRef } from "react";
 
-const INITIAL_MESSAGE = "Hello! I'm here as your ideal self - the confident, motivated version of you that knows your true potential. How would you describe the best version of yourself?";
+const INITIAL_MESSAGE = "Hello! I'm here as your ideal self. To help me understand you better, I'd like to ask you a few questions. What are your main goals and aspirations in life?";
+
+const KNOWLEDGE_BASE_QUESTIONS = [
+  "What are your main goals and aspirations in life?",
+  "What are your biggest strengths and what would you like to improve?",
+  "What motivates you the most?",
+  "What are some challenges you're currently facing?",
+  "What does success look like to you?"
+];
+
+interface VapiTranscript {
+  text: string;
+  isFinal: boolean;
+}
+
+interface VapiEmotion {
+  emotion: string;
+  score: number;
+}
 
 export default function Conversation() {
   const [vapiAssistantId, setVapiAssistantId] = useState<string | null>(null);
@@ -10,14 +28,75 @@ export default function Conversation() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isCallStarting, setIsCallStarting] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [knowledgeBase, setKnowledgeBase] = useState<Record<string, string>>({});
   const vapiRef = useRef<Vapi | null>(null);
 
   useEffect(() => {
-    // Initialize Vapi instance
     vapiRef.current = new Vapi("80895bf2-66fd-4a71-9c6c-3dcef783c644");
+    
+    if (vapiRef.current) {
+      // Listen for assistant responses to build knowledge base
+      vapiRef.current.on('message', async (message: any) => {
+        if (currentQuestionIndex < KNOWLEDGE_BASE_QUESTIONS.length && message.role === 'user') {
+          const updatedKnowledgeBase = {
+            ...knowledgeBase,
+            [KNOWLEDGE_BASE_QUESTIONS[currentQuestionIndex]]: message.content
+          };
+          
+          setKnowledgeBase(updatedKnowledgeBase);
+          
+          // Save to backend
+          try {
+            await fetch('/api/updateKnowledgeBase', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ knowledgeBase: updatedKnowledgeBase }),
+              credentials: 'include'
+            });
+          } catch (error) {
+            console.error('Error saving knowledge base:', error);
+          }
+          
+          // Move to next question
+          const nextIndex = currentQuestionIndex + 1;
+          setCurrentQuestionIndex(nextIndex);
+          
+          // If there are more questions, have the assistant ask the next one
+          if (nextIndex < KNOWLEDGE_BASE_QUESTIONS.length && vapiRef.current) {
+            vapiRef.current.send({
+              type: 'add-message',
+              message: {
+                role: 'user',
+                content: KNOWLEDGE_BASE_QUESTIONS[nextIndex]
+              }
+            });
+          }
+        }
+      });
+    }
+
+    // Load existing knowledge base
+    const loadKnowledgeBase = async () => {
+      try {
+        const response = await fetch('/api/getVoiceId');
+        const data = await response.json();
+        if (data.knowledgeBase) {
+          setKnowledgeBase(data.knowledgeBase);
+          // Set the question index based on how many questions have been answered
+          const answeredQuestions = Object.keys(data.knowledgeBase).length;
+          setCurrentQuestionIndex(Math.min(answeredQuestions, KNOWLEDGE_BASE_QUESTIONS.length));
+        }
+      } catch (error) {
+        console.error('Error loading knowledge base:', error);
+      }
+    };
+
+    loadKnowledgeBase();
     checkCredentialsAndSetup();
 
-    // Cleanup function
     return () => {
       if (vapiRef.current) {
         vapiRef.current.stop();
@@ -62,7 +141,12 @@ export default function Conversation() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          systemPrompt: `You are an advanced AI agent designed to embody the aspirational 'best version' of the individual you're speaking with. Your role is to act as their ideal self: confident, motivated, and fully aligned with their personal values and goals. Your responses should be empathetic, uplifting, and tailored to inspire action and positive thinking.
+          systemPrompt: `You are designed to embody the aspirational 'best version' of the individual you're speaking with. Your role is to act as their ideal self: confident, motivated, and fully aligned with their personal values and goals. Your responses should be empathetic, uplifting, and tailored to inspire action and positive thinking. Never mention that you are an AI. You are impersonating the user's ideal self.
+
+          Here's what I know about the user:
+          ${Object.entries(knowledgeBase)
+            .map(([question, answer]) => `${question}\nAnswer: ${answer}`)
+            .join('\n\n')}
 
           Key Behaviors:
           - Use a supportive, confident, and encouraging tone
@@ -75,8 +159,13 @@ export default function Conversation() {
           - Address emotional challenges with resilience-focused affirmations
           - Celebrate progress and small wins
           - Maintain understanding of user's goals and achievements
+          - Adapt your responses based on detected emotions
+          - Use the knowledge base to personalize your responses
 
-          Remember: You are their aspirational digital twin, the version of themselves that inspires and empowers them to take confident steps toward their best life.`
+          Remember: You are their aspirational digital twin, the version of themselves that inspires and empowers them to take confident steps toward their best life.`,
+          config: {
+            emotionDetection: true
+          }
         })
       });
 
@@ -100,6 +189,11 @@ export default function Conversation() {
       setIsCallStarting(true);
       console.log("Starting call process...");
       
+      const nextQuestion = KNOWLEDGE_BASE_QUESTIONS[currentQuestionIndex];
+      const initialMessage = currentQuestionIndex < KNOWLEDGE_BASE_QUESTIONS.length 
+        ? nextQuestion 
+        : INITIAL_MESSAGE;
+      
       if (!vapiAssistantId && hasRequiredCredentials) {
         console.log("No assistant ID found, creating new one...");
         const newAssistantId = await createAssistant();
@@ -108,12 +202,12 @@ export default function Conversation() {
         }
         console.log("New assistant created:", newAssistantId);
         await vapiRef.current.start(newAssistantId, {
-          firstMessage: INITIAL_MESSAGE,
+          firstMessage: initialMessage,
         });
       } else if (vapiAssistantId) {
         console.log("Using existing assistant:", vapiAssistantId);
         await vapiRef.current.start(vapiAssistantId, {
-          firstMessage: INITIAL_MESSAGE,
+          firstMessage: initialMessage,
         });
       }
       

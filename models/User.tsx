@@ -39,6 +39,11 @@ const userSchema = new mongoose.Schema(
       index: false,  // Explicitly prevent indexing
       default: null,
     },
+    knowledgeBase: {
+      type: Map,
+      of: String,
+      default: {}
+    }
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt fields

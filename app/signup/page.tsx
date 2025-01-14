@@ -110,7 +110,7 @@ export default function SignUpPage() {
       <button
         onClick={onSignUp}
         disabled={buttonDisabled}
-        className="p-3 bg-pink-600 text-white uppercase font-bold w-full sm:w-[350px] rounded-lg mt-4 disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-300 transition"
+        className="p-3 bg-purple-600 text-white uppercase font-bold w-full sm:w-[350px] rounded-lg mt-4 disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition"
       >
         {buttonDisabled ? 'Sign Up' : 'Register My Account Now'}
       </button>

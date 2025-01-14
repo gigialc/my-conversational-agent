@@ -36,6 +36,11 @@ await connectToMongoDB();
     return NextResponse.json({ message: "User not found" }, { status: 404 });
   }
   console.log(user);
-    return NextResponse.json({ voiceId: user.elevenlabsagentid, apiKey: user.elevenlabsapi , vapiAssistantId: user.vapiAssistantId }, { status: 200 });
+    return NextResponse.json({ 
+      voiceId: user.elevenlabsagentid, 
+      apiKey: user.elevenlabsapi, 
+      vapiAssistantId: user.vapiAssistantId,
+      knowledgeBase: user.knowledgeBase || {} 
+    }, { status: 200 });
 
 }
