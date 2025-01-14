@@ -1,7 +1,6 @@
 "use client"
 import Vapi from "@vapi-ai/web";
-import { useState, useEffect } from "react";
-
+import { useState, useEffect, useRef } from "react";
 
 const INITIAL_MESSAGE = "Hello! I'm here as your ideal self - the confident, motivated version of you that knows your true potential. How can I help you shine today?";
 
@@ -11,10 +10,19 @@ export default function Conversation() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isCallStarting, setIsCallStarting] = useState(false);
-  const vapi = new Vapi("80895bf2-66fd-4a71-9c6c-3dcef783c644");
+  const vapiRef = useRef<Vapi | null>(null);
 
   useEffect(() => {
+    // Initialize Vapi instance
+    vapiRef.current = new Vapi("80895bf2-66fd-4a71-9c6c-3dcef783c644");
     checkCredentialsAndSetup();
+
+    // Cleanup function
+    return () => {
+      if (vapiRef.current) {
+        vapiRef.current.stop();
+      }
+    };
   }, []);
 
   //fetching voice id from backend
@@ -87,62 +95,110 @@ export default function Conversation() {
   //starting call
   const handleStartCall = async () => {
     try {
+      if (!vapiRef.current) return;
+      
       setIsCallStarting(true);
       console.log("Starting call process...");
       
       if (!vapiAssistantId && hasRequiredCredentials) {
+        console.log("No assistant ID found, creating new one...");
         const newAssistantId = await createAssistant();
-        if (newAssistantId) {
-          await vapi.start(newAssistantId, {
-            firstMessage: INITIAL_MESSAGE,
-          });
+        if (!newAssistantId) {
+          throw new Error('Failed to create assistant');
         }
+        console.log("New assistant created:", newAssistantId);
+        await vapiRef.current.start(newAssistantId, {
+          firstMessage: INITIAL_MESSAGE,
+        });
       } else if (vapiAssistantId) {
-        await vapi.start(vapiAssistantId, {
+        console.log("Using existing assistant:", vapiAssistantId);
+        await vapiRef.current.start(vapiAssistantId, {
           firstMessage: INITIAL_MESSAGE,
         });
       }
+      
+      setIsCallActive(true);
+      console.log("Call started successfully");
     } catch (error) {
       console.error('Error starting call:', error);
+    } finally {
       setIsCallStarting(false);
     }
   };
 
-  const handleStopCall = () => {
-    vapi.stop();
-    setIsCallActive(false);
+  const handleStopCall = async () => {
+    try {
+      if (!vapiRef.current) return;
+      
+      console.log("Stopping call...");
+      await vapiRef.current.stop();
+      setIsCallActive(false);
+      console.log("Call stopped successfully");
+    } catch (error) {
+      console.error('Error stopping call:', error);
+    }
   };
 
   return (
     <div className="bg-black min-h-screen flex items-center justify-center">
       <div className="flex flex-col items-center">
         {isLoading ? (
-          <div className="text-white">Loading...</div>
+          <div className="text-white text-center mb-6">Loading...</div>
         ) : !hasRequiredCredentials ? (
           <div className="text-white text-center mb-6 p-4 rounded-lg bg-pink-600">
-            Please set your Eleven Labs API key and clone your voice in setup first!
+            Please set up your voice in the setup page first!
           </div>
         ) : isCallStarting ? (
           <div className="text-white text-center mb-6 p-4 rounded-lg">
-            Starting call process...
+            Starting conversation...
           </div>
         ) : null}
         
         <img
           src="BetterYou.png"
           alt="Better You"
-          onClick={hasRequiredCredentials && !isCallActive ? handleStartCall : undefined}
-          className={`cursor-pointer w-[300px] h-auto rounded-full bounce mb-4 ${
-            (!hasRequiredCredentials || isCallActive) ? "opacity-50 cursor-not-allowed" : ""
+          className={`w-[300px] h-auto rounded-full mb-8 ${
+            isCallActive ? 'ring-4 ring-green-500' : ''
+          } ${
+            (!hasRequiredCredentials || isCallStarting) ? "opacity-50" : "hover:scale-105 transition-transform"
           }`}
         />
-        
-        <button
-          onClick={handleStopCall}
-          className="mt-2 px-6 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-        >
-          Stop
-        </button>
+
+        <div className="flex space-x-4">
+          <button
+            onClick={handleStartCall}
+            disabled={!hasRequiredCredentials || isCallActive || isCallStarting}
+            className={`px-6 py-2 rounded-full font-semibold transition-all duration-200 ${
+              isCallActive 
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-500 hover:bg-green-600 active:scale-95'
+            } ${
+              !hasRequiredCredentials || isCallStarting
+                ? 'opacity-50 cursor-not-allowed'
+                : ''
+            }`}
+          >
+            {isCallStarting ? 'Starting...' : 'Start Conversation'}
+          </button>
+
+          <button
+            onClick={handleStopCall}
+            disabled={!isCallActive}
+            className={`px-6 py-2 rounded-full font-semibold transition-all duration-200 ${
+              isCallActive
+                ? 'bg-red-500 hover:bg-red-600 active:scale-95'
+                : 'bg-gray-400 cursor-not-allowed'
+            }`}
+          >
+            End Conversation
+          </button>
+        </div>
+
+        {isCallActive && (
+          <div className="mt-4 text-green-500 text-center">
+            Conversation is active - speak freely!
+          </div>
+        )}
       </div>
     </div>
   );
