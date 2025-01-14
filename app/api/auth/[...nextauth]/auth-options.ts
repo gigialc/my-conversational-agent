@@ -1,16 +1,11 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
 import { connectToMongoDB } from "@/dbConfig/dbconfig";
 import User from "@/models/User";
 import bcrypt from "bcrypt";
 
 export const authOptions: NextAuthOptions = {
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -33,40 +28,23 @@ export const authOptions: NextAuthOptions = {
         if (!isValidPassword) {
           throw new Error("Invalid email or password");
         }
+        console.log("User authenticated:", user.email); // Log successful authentication
         return {
           id: user._id.toString(),
           email: user.email,
           name: user.username,
+
         };
       },
     }),
   ],
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider === "google") {
-        try {
-          await connectToMongoDB();
-          const existingUser = await User.findOne({ email: user.email });
-          
-          if (!existingUser) {
-            // Create new user if they don't exist
-            await User.create({
-              email: user.email,
-              username: user.name,
-              // For Google auth users, we don't need a password
-              password: await bcrypt.hash(Math.random().toString(36), 10)
-            });
-          }
-          return true;
-        } catch (error) {
-          console.error("Error during Google sign in:", error);
-          return false;
-        }
-      }
-      return true;
-    },
     async jwt({ token, user }) {
       if (user) {
+        console.log("JWT callback - user:", user); // Log user information in JWT callback
         token.id = user.id;
         token.email = user.email as string;
         token.name = user.name as string;
@@ -75,18 +53,16 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (token) {
+        // console.log("Session callback - token:", token); // Log token information in session callback
         session.user = {
           id: token.id,
           email: token.email,
           name: token.name,
+
         };
       }
       return session;
     },
   },
-  pages: {
-    signIn: '/login',
-    error: '/login',
-  },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET, // REQUIRED
 };
