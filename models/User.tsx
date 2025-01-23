@@ -42,7 +42,15 @@ const userSchema = new mongoose.Schema(
     knowledgeBase: {
       type: Map,
       of: String,
-      default: {}
+      default: () => new Map()
+    },
+    timeUsed: {
+      type: Number,
+      default: 0,
+    },
+    lastTimeUpdate: {
+      type: Date,
+      default: Date.now
     }
   },
   {
