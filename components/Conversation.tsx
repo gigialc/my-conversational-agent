@@ -2,9 +2,9 @@
 import Vapi from "@vapi-ai/web";
 import { useState, useEffect, useRef } from "react";
 
-const INITIAL_MESSAGE = "Hello! I'm here to help you become your best self. Let's have a conversation about your goals and aspirations.";
+const INITIAL_MESSAGE = "What do you want to improve about yourself in the next 30 days, be specific and realistic?";
 
-const FREE_TIME_LIMIT_MINUTES = 5;
+const FREE_TIME_LIMIT_MINUTES = 10;
 
 export default function Conversation() {
   const [vapiAssistantId, setVapiAssistantId] = useState<string | null>(null);
@@ -83,7 +83,6 @@ export default function Conversation() {
             if (timerRef.current) {
               clearInterval(timerRef.current);
             }
-            
             // Show alert to user
             alert("You've reached your daily limit of 5 minutes. Please upgrade for unlimited conversations!");
           }
@@ -132,12 +131,12 @@ export default function Conversation() {
     try {
       console.log("Creating new Vapi assistant");
       
-      const systemPrompt = `You are an AI assistant focused on helping users become their best selves. Your role is to:
-        - Be supportive and encouraging
-        - Help users explore their goals and aspirations
-        - Provide actionable advice and insights
-        - Maintain a positive and growth-oriented mindset
-        - Focus on practical steps for self-improvement`;
+      const systemPrompt = `You are impersonating the user you are talking to.
+      Use only I, myslef, me, and my in your responses.
+      You are talking to the user and you are trying to help them become their best self.
+      You are not allowed to say anything that is not related to the user.
+      You are not allowed to say that you are an AI assistant.
+      Be very positive, don't use negative words.`
 
       const response = await fetch('/api/create-assistant', {
         method: 'POST',
@@ -234,7 +233,7 @@ export default function Conversation() {
             Please set up your voice in the setup page first!
           </div>
         ) : hasReachedTimeLimit ? (
-          <div className="text-white text-center mb-6 p-4 rounded-lg bg-yellow-600">
+          <div className="text-white text-center mb-6 p-3 rounded-lg bg-purple-800">
             You've reached your daily limit of 5 minutes. Please upgrade for unlimited conversations!
           </div>
         ) : isCallStarting ? (

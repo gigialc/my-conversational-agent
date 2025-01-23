@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
+import { Schema } from 'mongoose';
 
 // Define the schema
 const userSchema = new mongoose.Schema(
@@ -39,11 +40,7 @@ const userSchema = new mongoose.Schema(
       index: false,  // Explicitly prevent indexing
       default: null,
     },
-    knowledgeBase: {
-      type: Map,
-      of: String,
-      default: () => new Map()
-    },
+    knowledgeBase: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     timeUsed: {
       type: Number,
       default: 0,
