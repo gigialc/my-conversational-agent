@@ -2,30 +2,9 @@
 import Vapi from "@vapi-ai/web";
 import { useState, useEffect, useRef } from "react";
 
-const INITIAL_MESSAGE = "Hello! I'm here to learn more about you and help you become your best self. Let's start with some questions to get to know you better.";
+const INITIAL_MESSAGE = "Hello! I'm here to help you become your best self. Let's have a conversation about your goals and aspirations.";
 
-const KNOWLEDGE_BASE_QUESTIONS = [
-  "What do you want to improve about yourself?",
-];
-
-const FREE_TIME_LIMIT_MINUTES = 5; // Update to 5 minutes
-
-interface VapiTranscript {
-  text: string;
-  isFinal: boolean;
-}
-
-interface VapiEmotion {
-  emotion: string;
-  score: number;
-}
-
-interface KnowledgeBase {
-  mainGoal?: string;
-  idealSelf?: string;
-  currentSteps?: string;
-  obstacles?: string;
-}
+const FREE_TIME_LIMIT_MINUTES = 5;
 
 export default function Conversation() {
   const [vapiAssistantId, setVapiAssistantId] = useState<string | null>(null);
@@ -33,9 +12,7 @@ export default function Conversation() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isCallStarting, setIsCallStarting] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase>({});
-  const [timeUsed, setTimeUsed] = useState(0); // Time used in seconds
+  const [timeUsed, setTimeUsed] = useState(0);
   const [hasReachedTimeLimit, setHasReachedTimeLimit] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState<number>(FREE_TIME_LIMIT_MINUTES * 60);
   const vapiRef = useRef<Vapi | null>(null);
@@ -44,122 +21,11 @@ export default function Conversation() {
   useEffect(() => {
     vapiRef.current = new Vapi("80895bf2-66fd-4a71-9c6c-3dcef783c644");
     
-    if (vapiRef.current) {
-      // Listen for user responses to build knowledge base
-      vapiRef.current.on('message', async (message: any) => {
-        console.log('Received message:', message);
-        
-        // Only process user messages for the knowledge base
-        if (currentQuestionIndex < KNOWLEDGE_BASE_QUESTIONS.length && message.role === 'user') {
-          console.log('Processing user response for question:', KNOWLEDGE_BASE_QUESTIONS[currentQuestionIndex]);
-          
-          // Extract key information based on the current question
-          const keyInfo = message.content;
-          let keyType = '';
-          
-          switch(currentQuestionIndex) {
-            case 0:
-              keyType = 'mainGoal';
-              break;
-            case 1:
-              keyType = 'idealSelf';
-              break;
-            case 2:
-              keyType = 'currentSteps';
-              break;
-            case 3:
-              keyType = 'obstacles';
-              break;
-            default:
-              return;
-          }
-          
-          const updatedKnowledgeBase = {
-            ...knowledgeBase,
-            [keyType]: message.content
-          };
-          
-          console.log('Updated knowledge base:', updatedKnowledgeBase);
-          setKnowledgeBase(updatedKnowledgeBase);
-          
-          // Save to backend
-          try {
-            const response = await fetch('/api/updateKnowledgeBase', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ knowledgeBase: updatedKnowledgeBase }),
-              credentials: 'include'
-            });
-            
-            if (!response.ok) {
-              throw new Error('Failed to save knowledge base');
-            }
-            
-            console.log('Knowledge base saved successfully');
-            
-            // Move to next question
-            const nextIndex = currentQuestionIndex + 1;
-            setCurrentQuestionIndex(nextIndex);
-            
-            // If there are more questions, ask the next one immediately without waiting for AI response
-            if (nextIndex < KNOWLEDGE_BASE_QUESTIONS.length && vapiRef.current) {
-              console.log('Asking next question:', KNOWLEDGE_BASE_QUESTIONS[nextIndex]);
-              // Move directly to asking the next question without trying to stop
-              await vapiRef.current.send({
-                type: 'add-message',
-                message: {
-                  role: 'assistant',
-                  content: KNOWLEDGE_BASE_QUESTIONS[nextIndex]
-                }
-              });
-            } else if (vapiRef.current) {
-              // All questions answered, update the system prompt with collected information
-              const systemPrompt = `You are now embodying my ideal self, based on what you've learned about me. You should act as my aspirational self-image, speaking from the first person perspective as if you are the best version of me. Use the following information to guide your responses:
-
-              My main goal: ${knowledgeBase.mainGoal}
-              My ideal self: ${knowledgeBase.idealSelf}
-              Steps I'm taking: ${knowledgeBase.currentSteps}
-              My current obstacles: ${knowledgeBase.obstacles}
-
-              Remember:
-              - Speak in first person ("I", "my", "we")
-              - Never break character or mention being an AI
-              - Use my actual goals and aspirations in responses
-              - Be encouraging but realistic
-              - Focus on growth and progress
-              - Reference my specific situation and goals`;
-
-              // Update the assistant with the new system prompt
-              await createAssistant();
-              
-              // Send a transition message
-              await vapiRef.current.send({
-                type: 'add-message',
-                message: {
-                  role: 'assistant',
-                  content: "I understand your goals and aspirations now. Let's talk about how we can work together to achieve them."
-                }
-              });
-            }
-          } catch (error) {
-            console.error('Error saving knowledge base:', error);
-          }
-        }
-      });
-    }
-
-    // Load existing knowledge base and time used
+    // Load time used
     const loadUserData = async () => {
       try {
         const response = await fetch('/api/getVoiceId');
         const data = await response.json();
-        if (data.knowledgeBase) {
-          setKnowledgeBase(data.knowledgeBase);
-          const answeredQuestions = Object.keys(data.knowledgeBase).length;
-          setCurrentQuestionIndex(Math.min(answeredQuestions, KNOWLEDGE_BASE_QUESTIONS.length));
-        }
         if (data.timeUsed) {
           setTimeUsed(data.timeUsed);
           if (data.timeUsed >= FREE_TIME_LIMIT_MINUTES * 60) {
@@ -266,29 +132,12 @@ export default function Conversation() {
     try {
       console.log("Creating new Vapi assistant");
       
-      // Create system prompt based on knowledge base
-      const systemPrompt = currentQuestionIndex >= KNOWLEDGE_BASE_QUESTIONS.length
-        ? `You are now embodying my ideal self, based on what you've learned about me. You should act as my aspirational self-image, speaking from the first person perspective as if you are the best version of me. Use the following information to guide your responses:
-
-          My main goal: ${knowledgeBase.mainGoal}
-          My ideal self: ${knowledgeBase.idealSelf}
-          Steps I'm taking: ${knowledgeBase.currentSteps}
-          My current obstacles: ${knowledgeBase.obstacles}
-
-          Remember:
-          - Speak in first person ("I", "my", "we")
-          - Never break character or mention being an AI
-          - Use my actual goals and aspirations in responses
-          - Be encouraging but realistic
-          - Focus on growth and progress
-          - Reference my specific situation and goals`
-        : `You are an interviewer gathering information about the user. Your role is to:
-          - Ask the provided questions one at a time
-          - Listen to the responses without commentary
-          - Move to the next question immediately after receiving an answer
-          - Do not provide advice or feedback between questions
-          - Do not engage in conversation beyond asking the questions
-          - Stay focused on collecting information`;
+      const systemPrompt = `You are an AI assistant focused on helping users become their best selves. Your role is to:
+        - Be supportive and encouraging
+        - Help users explore their goals and aspirations
+        - Provide actionable advice and insights
+        - Maintain a positive and growth-oriented mindset
+        - Focus on practical steps for self-improvement`;
 
       const response = await fetch('/api/create-assistant', {
         method: 'POST',
@@ -336,13 +185,6 @@ export default function Conversation() {
       setIsCallStarting(true);
       console.log("Starting call process...");
       
-      const nextQuestion = KNOWLEDGE_BASE_QUESTIONS[currentQuestionIndex];
-      const initialMessage = currentQuestionIndex < KNOWLEDGE_BASE_QUESTIONS.length 
-        ? `Hello! I'm here to learn more about you. ${nextQuestion}`
-        : INITIAL_MESSAGE;
-      
-      console.log("Using initial message:", initialMessage);
-      
       if (!vapiAssistantId && hasRequiredCredentials) {
         console.log("No assistant ID found, creating new one...");
         const newAssistantId = await createAssistant();
@@ -351,12 +193,12 @@ export default function Conversation() {
         }
         console.log("New assistant created:", newAssistantId);
         await vapiRef.current.start(newAssistantId, {
-          firstMessage: initialMessage,
+          firstMessage: INITIAL_MESSAGE,
         });
       } else if (vapiAssistantId) {
         console.log("Using existing assistant:", vapiAssistantId);
         await vapiRef.current.start(vapiAssistantId, {
-          firstMessage: initialMessage,
+          firstMessage: INITIAL_MESSAGE,
         });
       }
       
