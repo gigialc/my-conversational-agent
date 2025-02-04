@@ -1,46 +1,48 @@
 import mongoose from 'mongoose';
-import bcrypt from 'bcrypt';
 import { Schema } from 'mongoose';
 
-// Define the schema
+// First, try to delete the existing model if it exists
+if (mongoose.models.User) {
+    delete mongoose.models.User;
+}
+
 const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,
-      required: true,
+      required: [true, 'Username is required'],
       unique: true,
-      trim: true, // Removes leading/trailing spaces
+      trim: true,
     },
     email: {
       type: String,
-      required: true,
+      required: [true, 'Email is required'],
       unique: true,
-      lowercase: true, // Converts email to lowercase
+      lowercase: true,
       trim: true,
     },
     password: {
       type: String,
-      required: true,
+      required: [true, 'Password is required']
     },
     elevenlabsapi: {
       type: String,
       required: false,
-      index: false,  // Explicitly prevent indexing
+      index: false,
       default: null,
     },
     elevenlabsagentid: {
       type: String,
       required: false,
-      index: false,  // Explicitly prevent indexing
+      index: false,
       default: null,
     },
     vapiAssistantId: {
       type: String,
       required: false,
-      index: false,  // Explicitly prevent indexing
+      index: false,
       default: null,
     },
-    knowledgeBase: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     timeUsed: {
       type: Number,
       default: 0,
@@ -51,11 +53,14 @@ const userSchema = new mongoose.Schema(
     }
   },
   {
-    timestamps: true, // Automatically adds createdAt and updatedAt fields
+    timestamps: true,
+    // Add this to ensure Mongoose doesn't enforce fields not in schema
+    strict: true,
+    // Add this to ensure schema is properly initialized
+    versionKey: false
   }
 );
 
-// Define the model
-const User = mongoose.models.User || mongoose.model('User', userSchema);
-
+// Create and export the model
+const User = mongoose.model('User', userSchema);
 export default User;

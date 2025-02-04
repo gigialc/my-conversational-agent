@@ -8,6 +8,11 @@ connectToMongoDB();
 
 export async function POST(request: NextRequest) {
 	try {
+		// Check if TOKEN_SECRET exists
+		if (!process.env.TOKEN_SECRET) {
+			throw new Error('TOKEN_SECRET is not defined in environment variables');
+		}
+
 		// Grab data from body
 		const reqBody = await request.json();
 		console.log('Login Request Body:', reqBody); // Debugging statement
@@ -59,7 +64,7 @@ export async function POST(request: NextRequest) {
 		//check for session data
 		 console.log("Token Data:", tokenData);
 		// Sign JWT token
-		const token = jwt.sign(tokenData, process.env.TOKEN_SECRET!, { expiresIn: '2d' });
+		const token = jwt.sign(tokenData, process.env.TOKEN_SECRET, { expiresIn: '2d' });
 
 		// Set token in cookies
 		const response = NextResponse.json({ message: 'Login Successful', success: true });

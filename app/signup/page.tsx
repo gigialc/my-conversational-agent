@@ -25,31 +25,50 @@ export default function SignUpPage() {
 
   const onSignUp = async () => {
     try {
+      console.log('Starting signup process with user data:', {
+        username: user.username,
+        email: user.email,
+        passwordLength: user.password.length // Don't log actual password
+      });
+      
       setLoading(true);
+      console.log('Loading state set to true');
 
+      console.log('Sending POST request to /auth_backend/signup');
       const response = await axios.post('/auth_backend/signup', user);
-      console.log('Account successfully created!', response.data);
+      console.log('Signup response received:', response.data);
 
       // Automatically sign the user in
+      console.log('Attempting automatic sign in');
       const signInResponse = await signIn('credentials', {
         redirect: false,
         email: user.email,
         password: user.password,
       });
+      console.log('Sign in response:', signInResponse);
 
       if (signInResponse?.error) {
+        console.error('Sign-in error occurred:', signInResponse.error);
         setErrorMessage('Error during sign-in. Please try logging in manually.');
-        console.log('Sign-in error:', signInResponse.error);
         return;
       }
 
+      console.log('Sign in successful, redirecting to login page');
       router.push('/login');
     } catch (error: any) {
+      console.error('Signup error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      
       const message =
-        error.response?.data?.message || 'Sign up failed, please try again.';
+        error.response?.data?.error || error.response?.data?.message || 'Sign up failed, please try again.';
       setErrorMessage(message);
-      console.log('Sign up failed:', message);
+      console.log('Error message set to:', message);
     } finally {
+      console.log('Signup process completed, loading set to false');
       setLoading(false);
     }
   };

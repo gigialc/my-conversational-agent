@@ -40,7 +40,6 @@ await connectToMongoDB();
       voiceId: user.elevenlabsagentid, 
       apiKey: user.elevenlabsapi, 
       vapiAssistantId: user.vapiAssistantId,
-      knowledgeBase: user.knowledgeBase || {} 
     }, { status: 200 });
 
 }

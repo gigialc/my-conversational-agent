@@ -8,7 +8,7 @@ const conversationSchema = new Schema({
     recordingUrl: String,
     messages: [{
       role: String,
-      message: String
+      content: String
     }],
     timestamp: { type: Date, default: Date.now }
   });

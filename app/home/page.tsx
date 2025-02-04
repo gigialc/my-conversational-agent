@@ -15,7 +15,7 @@ export default function Home() {
       document.cookie = 'token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       await signOut({ 
         redirect: true,
-        callbackUrl: '/'
+        callbackUrl: '/login'
       });
     } catch (error) {
       console.error('Error signing out:', error);
