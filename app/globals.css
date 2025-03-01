@@ -2,9 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Your other global styles below */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #010810;
+  --foreground: #ededed;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -17,54 +19,34 @@
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
 }
 
 @keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-}
-
-.pulse-animation {
-  animation: pulse 1.5s infinite;
-}
-
-body {
-  margin: 0;
-  background-color: #010810;
-  font-family: "Inter", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
-    "Helvetica Neue", sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-p {
-  margin: 0;
-  padding: 0;
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
 }
 
 @keyframes bounce {
   0%, 100% {
-    transform: translateY(0); /* Resting position */
-    animation-timing-function: ease-in-out; /* Smooth in and out */
+    transform: translateY(0);
+    animation-timing-function: ease-in-out;
   }
   30% {
-    transform: translateY(-80px); /* Higher upward bounce */
-    animation-timing-function: ease-in; /* Slows down as it reaches the peak */
+    transform: translateY(-80px);
+    animation-timing-function: ease-in;
   }
   50% {
-    transform: translateY(-60px); /* Intermediate bounce */
-    animation-timing-function: ease-out; /* Speeds up as it goes down */
+    transform: translateY(-60px);
+    animation-timing-function: ease-out;
   }
 }
 
-.bounce {
-  animation: bounce 1.8s infinite; /* Slightly longer duration for dramatic effect */
-}
+.pulse-animation { animation: pulse 1.5s infinite; }
+.bounce { animation: bounce 1.8s infinite; }
 
 /* .rounded-full {
   border-radius: 50%; 

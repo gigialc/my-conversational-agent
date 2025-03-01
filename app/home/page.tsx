@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Setup from '../../components/Setup';
 import Conversation from '../../components/Conversation'
 import { signOut, useSession } from 'next-auth/react';
@@ -9,6 +9,25 @@ export default function Home() {
   const [currentTab, setCurrentTab] = useState('setup');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { data: session } = useSession();
+  const [showSetupOption, setShowSetupOption] = useState(true);
+
+  useEffect(() => {
+    const checkAssistantId = async () => {
+      try {
+        const response = await fetch("/api/getVoiceId");
+        const data = await response.json();
+        
+        if (data.vapiAssistantId) {
+          setCurrentTab('conversation');
+          setShowSetupOption(false);
+        }
+      } catch (error) {
+        console.error("Error checking assistant ID:", error);
+      }
+    };
+
+    checkAssistantId();
+  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -28,7 +47,6 @@ export default function Home() {
         <div className="flex items-center justify-between px-4 py-4">
           <div className="text-2xl font-bold">Mirai</div>
           
-          {/* Mobile menu button */}
           <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="md:hidden p-2"
@@ -43,13 +61,15 @@ export default function Home() {
           </button>
 
           {/* Desktop navigation */}
-          <div className="hidden md:flex md:space-x-6 md:items-center">
-            <button
-              onClick={() => setCurrentTab('setup')}
-              className={`px-6 py-2 rounded-md ${currentTab === 'setup' ? 'scale-105' : ''}`}
-            >
-              Setup
-            </button>
+           <div className="hidden md:flex md:space-x-6 md:items-center">
+            {showSetupOption && (
+              <button
+                onClick={() => setCurrentTab('setup')}
+                className={`px-6 py-2 rounded-md ${currentTab === 'setup' ? 'scale-105' : ''}`}
+              >
+                Setup
+              </button>
+            )}
             <button
               onClick={() => setCurrentTab('conversation')}
               className={`px-6 py-2 rounded-md ${currentTab === 'conversation' ? 'scale-105' : ''}`}
@@ -65,20 +85,22 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Mobile navigation */}
-        <div className={`${isMenuOpen ? 'block' : 'hidden'} md:hidden border-t border-gray-800 bg-black`}>
+       {/* Mobile navigation */}
+       <div className={`${isMenuOpen ? 'block' : 'hidden'} md:hidden border-t border-gray-800 bg-black`}>
           <div className="px-4 pt-3 pb-4 space-y-3">
-            <button
-              onClick={() => {
-                setCurrentTab('setup');
-                setIsMenuOpen(false);
-              }}
-              className={`block w-full text-left px-6 py-3 rounded-md ${
-                currentTab === 'setup' ? 'bg-gray-800' : 'hover:bg-gray-800'
-              }`}
-            >
-              Setup
-            </button>
+            {showSetupOption && (
+              <button
+                onClick={() => {
+                  setCurrentTab('setup');
+                  setIsMenuOpen(false);
+                }}
+                className={`block w-full text-left px-6 py-3 rounded-md ${
+                  currentTab === 'setup' ? 'bg-gray-800' : 'hover:bg-gray-800'
+                }`}
+              >
+                Setup
+              </button>
+            )}
             <button
               onClick={() => {
                 setCurrentTab('conversation');
@@ -101,7 +123,7 @@ export default function Home() {
       </div>
 
       <div className="pt-20 p-6">
-        {currentTab === 'setup' ? <Setup /> : <Conversation />}
+        {currentTab === 'setup' && showSetupOption ? <Setup /> : <Conversation />}
       </div>
     </div>
   );

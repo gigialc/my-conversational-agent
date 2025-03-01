@@ -43,6 +43,10 @@ const userSchema = new mongoose.Schema(
       index: false,
       default: null,
     },
+    initialMessageHandled: {
+      type: Boolean,
+      default: false,
+    },
     timeUsed: {
       type: Number,
       default: 0,

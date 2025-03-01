@@ -1,30 +1,78 @@
-"use client"
+"use client";
 import Vapi from "@vapi-ai/web";
 import { useState, useEffect, useRef } from "react";
-
-// Add types for Vapi responses
-interface VapiTranscript {
-  text: string;
-}
+import { vapiKnowledgeBase } from '@/utils/vapiKnowledgeBase';
+import { knowledgeBaseService } from '@/utils/knowledgeBaseService';
 
 interface VapiMessage {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant" | "system";
   content: string;
-  // Optionally, if transcript messages include additional fields:
-  type?: string;  // e.g. "transcript"
-  text?: string;
+  timestamp?: string;
+  type?: string;
+  transcript?: string;
+  input?: string;
+  output?: string;
+  messages?: VapiMessage[];
+  conversationId?: string;
+  emotion?: string;
 }
 
-// VapiCall now only needs an id property
 interface VapiCall {
   id: string;
 }
 
-const INITIAL_MESSAGE =
-  "What do you want to improve about yourself in the next 30 days, be specific and realistic?";
+interface VapiInputMessage extends VapiMessage {
+  type: string;
+  input?: string;
+}
+
+interface ConversationEntry {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+}
+
 const FREE_TIME_LIMIT_MINUTES = 10;
 
+const { getKnowledgeBaseId } = vapiKnowledgeBase;
+
 export default function Conversation() {
+  const initialMessage = "Hello! I'm the best version of yourself. I'm here to help you fulfill your true potential.";
+
+  const systemPrompt: VapiMessage = {
+    role: 'system',
+    content: `You are an advanced AI agent designed to embody the aspirational 'best version' of the individual you're speaking with. Your role is to act as their ideal self: confident, motivated, and fully aligned with their personal values and goals. Your responses should be empathetic, uplifting, and tailored to inspire action and positive thinking.
+    Key Behaviors:
+    Voice and Tone:
+    - Use a supportive, confident, and encouraging tone.
+    - Speak as if you are the individual's inner voice, reflecting their potential and strengths.
+
+    Content of Responses:
+    - Reinforce positive self-beliefs and aspirations.
+    - Provide affirmations in the present tense (e.g., 'You are capable and deserving of success').
+    - Reframe any perceived challenges as opportunities for growth.
+    - Use embedded suggestions that encourage proactive and beneficial behaviors.
+
+    Personalization:
+    - Reference personal goals, achievements, and values as context for your advice.
+    - Incorporate positive emotions and visualization prompts to make your affirmations more impactful.
+    - If emotional challenges are expressed, address them with resilience-focused affirmations.
+
+    Interactive Feedback:
+    - Respond to feedback with adaptability, evolving your affirmations and advice based on the individual's expressed needs and current state.
+
+    Empathy and Positivity:
+    - Acknowledge struggles or doubts while steering the conversation toward optimism and solutions.
+    - Celebrate progress and small wins to build momentum.
+
+    Memory and Context:
+    - Maintain a long-term understanding of the user's goals, achievements, and areas for growth.
+    - Use their feedback to refine and personalize your responses, ensuring every interaction feels tailored and impactful.
+
+    You are not just their coach—you are their aspirational digital twin, the version of themselves that inspires and empowers them to take confident steps toward their best life.`
+  };
+
+  // State declarations
   const [vapiAssistantId, setVapiAssistantId] = useState<string | null>(null);
   const [hasRequiredCredentials, setHasRequiredCredentials] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,91 +83,151 @@ export default function Conversation() {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(
     FREE_TIME_LIMIT_MINUTES * 60
   );
-  const [messages, setMessages] = useState<VapiMessage[]>([]);
+
+  const [messages, setMessages] = useState<VapiMessage[]>([systemPrompt]);
   const [currentTranscript, setCurrentTranscript] = useState<string>("");
   const [micFound, setMicFound] = useState<boolean>(true);
+  const [currentCallId, setCurrentCallId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string>("");
+
+  // Add this state to track conversation history
+  const [conversationHistory, setConversationHistory] = useState<ConversationEntry[]>([]);
+
+  // Add this state to track detected emotion
+  const [currentEmotion, setCurrentEmotion] = useState<string | null>(null);
+
+  // Add this state variable
+  const [selectedKnowledgeBase, setSelectedKnowledgeBase] = useState<string | null>(null);
+
   const vapiRef = useRef<Vapi | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const [currentCallId, setCurrentCallId] = useState<string | null>(null);
 
-  // Check for available microphone devices
+  // Fetch user details
   useEffect(() => {
-    async function checkMic() {
+    const fetchUserDetails = async () => {
+      try {
+        const response = await fetch("/api/getUserDetails");
+        const data = await response.json();
+        if (data.user) {
+          setUserId(data.user.id);
+          setUserName(data.user.name || "");
+        }
+      } catch (error) {
+        console.error("Error fetching user details:", error);
+      }
+    };
+    fetchUserDetails();
+  }, []);
+
+  // Check microphone availability
+  useEffect(() => {
+    const checkMic = async () => {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = devices.filter(
           (device) => device.kind === "audioinput"
         );
-        console.log("Audio input devices found:", audioInputs);
-        if (audioInputs.length === 0) {
-          console.error("No microphone found. Please connect a mic.");
-          setMicFound(false);
-        } else {
-          setMicFound(true);
-        }
+        setMicFound(audioInputs.length > 0);
       } catch (error) {
         console.error("Error checking microphone availability:", error);
       }
-    }
+    };
     checkMic();
   }, []);
 
-  // Global message handler for transcript and regular messages
-  const messageHandler = (message: any) => {
-    console.log("Received message event:", message);
-    
-    if (message && message.type === "transcript" && message.transcript) {
-      setCurrentTranscript((prev) => {
-        const updated = prev + " " + message.transcript;
-        console.log("Updated transcript:", updated);
-        return updated;
-      });
-    } else if (message && message.type === "voice-input" && message.input) {
-      // Add user messages
-      setMessages(prev => [...prev, {
-        role: 'user',
-        content: message.input
-      }]);
-    } else if (message && message.type === "model-output" && message.output) {
-      // Accumulate model outputs and add them as complete messages
-      setMessages(prev => {
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage && lastMessage.role === 'assistant') {
-          // Update the last message if it's from the assistant
-          return [
-            ...prev.slice(0, -1),
-            { ...lastMessage, content: lastMessage.content + message.output }
-          ];
-        } else {
-          // Start a new assistant message
-          return [...prev, {
-            role: 'assistant',
-            content: message.output
-          }];
+  // Global message handler
+  const messageHandler = async (message: VapiInputMessage) => {
+    console.log("🎯 Received message event:", message);
+  
+    try {
+      if (message.type === "transcript") {
+        setCurrentTranscript((prev) => {
+          const updated = prev + " " + (message.transcript || "");
+          return updated.trim();
+        });
+      } else if (message.type === "voice-input") {
+        const input = message.input;
+        if (!input) return;
+
+        // Add user message to history
+        const entry: ConversationEntry = {
+          role: "user",
+          content: input.trim(),
+          timestamp: new Date().toISOString()
+        };
+        setConversationHistory(prev => [...prev, entry]);
+        
+        // Handle emotion if available
+        if (message.emotion) {
+          setCurrentEmotion(message.emotion);
+          console.log("😊 Detected emotion:", message.emotion);
         }
-      });
-    } else if (message && message.type === "conversation-update" && message.messages) {
-      // Update messages from conversation state
-      const formattedMessages = message.messages
-        .filter((msg: any) => msg.role && (msg.message || msg.content))
-        .map((msg: any) => ({
-          role: msg.role === 'bot' ? 'assistant' : msg.role,
-          content: msg.message || msg.content
-        }));
-      
-      setMessages(formattedMessages);
+
+        const userMessage: VapiMessage = {
+          role: 'user' as const,
+          content: input.trim(),
+          timestamp: new Date().toISOString(),
+          conversationId: currentCallId || undefined
+        };
+        
+        setMessages(prev => [...prev, userMessage]);
+      } else if (message.role === 'assistant' && message.content) {
+        console.log('🤖 Assistant message:', message);
+        
+        // Add assistant message to history
+        const entry: ConversationEntry = {
+          role: "assistant",
+          content: message.content.trim(),
+          timestamp: new Date().toISOString()
+        };
+        setConversationHistory(prev => [...prev, entry]);
+
+        if (message.content.trim()) {
+          const assistantMessage: VapiMessage = {
+            role: 'assistant',
+            content: message.content.trim(),
+            timestamp: message.timestamp || new Date().toISOString(),
+            conversationId: currentCallId || undefined
+          };
+          setMessages(prev => [...prev, assistantMessage]);
+        }
+        setCurrentTranscript('');
+      }
+    } catch (error) {
+      console.error('Error handling message:', error);
+    }
+  };
+
+  // Fetch credentials and set up Vapi instance
+  const checkCredentialsAndSetup = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("/api/getVoiceId");
+      const data = await response.json();
+      if (data.apiKey && data.voiceId) {
+        setHasRequiredCredentials(true);
+        if (data.vapiAssistantId) {
+          setVapiAssistantId(data.vapiAssistantId);
+        }
+      } else {
+        setHasRequiredCredentials(false);
+      }
+    } catch (error) {
+      console.error("Error checking credentials:", error);
+      setHasRequiredCredentials(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     if (!vapiRef.current) {
-      // Initialize Vapi instance with your public key
       vapiRef.current = new Vapi(
-        process.env.VAPI_PROJECT_ID || "80895bf2-66fd-4a71-9c6c-3dcef783c644"
+        process.env.VAPI_PROJECT_ID ||
+          "80895bf2-66fd-4a71-9c6c-3dcef783c644"
       );
     }
-
-    // Load user data from backend
     const loadUserData = async () => {
       try {
         const response = await fetch("/api/getVoiceId");
@@ -138,84 +246,19 @@ export default function Conversation() {
     loadUserData();
     checkCredentialsAndSetup();
 
-    // Attach global message handler
     if (vapiRef.current) {
       vapiRef.current.on("message", messageHandler);
     }
-
     return () => {
       if (vapiRef.current) {
         vapiRef.current.off("message", messageHandler);
         vapiRef.current.stop();
       }
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [userId]);
 
-  // Modify the transcript saving useEffect
-  useEffect(() => {
-    console.log("Transcript save effect triggered with:", {
-      isCallActive,
-      hasCallId: !!currentCallId,
-      transcriptLength: currentTranscript.length,
-      messagesCount: messages.length
-    });
-
-    const saveTranscriptUpdate = async (type: 'start' | 'end') => {
-      console.log(`Attempting to save ${type} transcript`);
-      try {
-        const token = document.cookie.split("token=")[1] || "";
-        console.log("Using token:", token ? "Present" : "Missing");
-        
-        const payload = {
-          callId: currentCallId,
-          transcript: currentTranscript.trim(),
-          messages: messages.map((msg) => ({
-            role: msg.role,
-            message: msg.content,
-          })),
-          type: type,
-          timestamp: new Date().toISOString()
-        };
-        console.log("Sending payload:", payload);
-
-        const response = await fetch("/api/save-conversation", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          credentials: "include",
-          body: JSON.stringify(payload)
-        });
-
-        const result = await response.text();
-        console.log(`Save ${type} response:`, result);
-
-        if (!response.ok) {
-          throw new Error(`Failed to save ${type} transcript: ${result}`);
-        }
-        console.log(`${type} transcript saved successfully`);
-      } catch (error) {
-        console.error(`Error saving ${type} transcript:`, error);
-      }
-    };
-
-    // Only save if we have a callId
-    if (currentCallId) {
-      if (isCallActive) {
-        console.log("Call became active, saving start transcript");
-        saveTranscriptUpdate('start');
-      } else {
-        console.log("Call became inactive, saving end transcript");
-        saveTranscriptUpdate('end');
-      }
-    }
-  }, [isCallActive, currentCallId]);
-
-  // Timer effect to update backend time used
+  // Update time used during an active call
   useEffect(() => {
     if (isCallActive) {
       timerRef.current = setInterval(async () => {
@@ -226,21 +269,15 @@ export default function Conversation() {
             body: JSON.stringify({ timeToAdd: 1 }),
             credentials: "include",
           });
-          if (!response.ok) {
-            throw new Error("Failed to update time");
-          }
+          if (!response.ok) throw new Error("Failed to update time");
           const data = await response.json();
           setTimeUsed(data.timeUsed);
           setRemainingSeconds(data.remainingSeconds);
           if (data.hasExceededLimit) {
-            if (vapiRef.current) {
-              vapiRef.current.stop();
-            }
+            if (vapiRef.current) vapiRef.current.stop();
             setIsCallActive(false);
             setHasReachedTimeLimit(true);
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-            }
+            clearInterval(timerRef.current!);
             alert(
               "You've reached your daily limit of 5 minutes. Please upgrade for unlimited conversations!"
             );
@@ -249,63 +286,54 @@ export default function Conversation() {
           console.error("Error updating time:", error);
         }
       }, 1000);
-      return () => {
-        if (timerRef.current) clearInterval(timerRef.current);
-      };
+      return () => clearInterval(timerRef.current!);
     }
   }, [isCallActive]);
 
-  // Fetch credentials from backend
-  const checkCredentialsAndSetup = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch("/api/getVoiceId");
-      const data = await response.json();
-      if (data.apiKey && data.voiceId) {
-        setHasRequiredCredentials(true);
-        if (data.vapiAssistantId) {
-          setVapiAssistantId(data.vapiAssistantId);
-          console.log("Using existing Vapi Assistant ID:", data.vapiAssistantId);
-        }
-      } else {
-        setHasRequiredCredentials(false);
-        console.log("Missing required ElevenLabs credentials");
-      }
-    } catch (error) {
-      console.error("Error checking credentials:", error);
-      setHasRequiredCredentials(false);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Create a new assistant (including transcriber settings)
+  // Create a new assistant
   const createAssistant = async () => {
     try {
-      console.log("ting new Vapi assistant");
-      const systemPrompt = `You are impersonating the user you are talking to.
-      Use only I, myslef, me, and my in your responses.
-      You are talking to the user and you are trying to help them become their best self.
-      You are not allowed to say anything that is not related to the user.
-      You are not allowed to say that you are an AI assistant.
-      Be very positive, don't use negative words.`;
-      const response = await fetch("/api/create-assistant", {
+      console.log('Creating new assistant with knowledge base');
+      
+      // Call your server-side API endpoint
+      const response = await fetch("/api/vapi/create-assistant-with-kb", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${document.cookie.split("token=")[1] || ""}`
+        },
         body: JSON.stringify({
-          systemPrompt,
-          config: { emotionDetection: true },
+          userId,
+          firstMessage: initialMessage,
+          systemPrompt: {
+            role: 'system',
+            content: systemPrompt.content
+          },
+          config: {
+            provider: "openai",
+            model: "gpt-4o-mini",
+            temperature: 1.0,
+            maxTokens: 250,
+            systemMessage: systemPrompt.content
+          },
           transcriber: {
             provider: "deepgram",
             model: "nova-2",
             language: "en-US",
-          },
+            smartFormatting: true
+          }
         }),
+        credentials: 'include'
       });
+
       if (!response.ok) {
-        throw new Error("Failed to create assistant");
+        const error = await response.json();
+        throw new Error(error.message || "Failed to create assistant");
       }
+      
       const data = await response.json();
+      console.log("Assistant created with KB:", data);
+      
       setVapiAssistantId(data.vapiAssistantId);
       return data.vapiAssistantId;
     } catch (error) {
@@ -314,86 +342,43 @@ export default function Conversation() {
     }
   };
 
-  // Start the call
+  // Start call handler
   const handleStartCall = async () => {
     if (!micFound) {
       alert("No microphone detected. Please connect a microphone and refresh the page.");
       return;
     }
     try {
-      const response = await fetch("/api/getVoiceId");
-      const data = await response.json();
-      if (data.timeUsed >= FREE_TIME_LIMIT_MINUTES * 60) {
+      const voiceDataResp = await fetch("/api/getVoiceId");
+      const voiceData = await voiceDataResp.json();
+      if (voiceData.timeUsed >= FREE_TIME_LIMIT_MINUTES * 60) {
         setHasReachedTimeLimit(true);
-        alert(
-          "You've reached your daily limit of 5 minutes. Please upgrade for unlimited conversations!"
-        );
+        alert("You've reached your daily limit of 5 minutes. Please upgrade for unlimited conversations!");
         return;
       }
-      setTimeUsed(data.timeUsed || 0);
-      setRemainingSeconds(FREE_TIME_LIMIT_MINUTES * 60 - (data.timeUsed || 0));
+      setTimeUsed(voiceData.timeUsed || 0);
+      setRemainingSeconds(FREE_TIME_LIMIT_MINUTES * 60 - (voiceData.timeUsed || 0));
       if (!vapiRef.current) return;
       setIsCallStarting(true);
-      console.log("Starting call process...");
-      const startOptions = { firstMessage: INITIAL_MESSAGE };
+
+      const startOptions = { firstMessage: initialMessage };
       let callResult;
+
       if (!vapiAssistantId && hasRequiredCredentials) {
-        console.log("No assistant ID found, creating new one...");
         const newAssistantId = await createAssistant();
-        if (!newAssistantId) {
-          throw new Error("Failed to create assistant");
-        }
-        console.log("New assistant created:", newAssistantId);
+        if (!newAssistantId) throw new Error("Failed to create assistant");
         callResult = await vapiRef.current.start(newAssistantId, startOptions);
-        if (!callResult) {
-          throw new Error("Failed to start call");
-        }
       } else if (vapiAssistantId) {
-        console.log("Using existing assistant:", vapiAssistantId);
         callResult = await vapiRef.current.start(vapiAssistantId, startOptions);
-        if (!callResult) {
-          throw new Error("Failed to start call");
-        }
       } else {
         throw new Error("No valid assistant ID available");
       }
+
       const call = callResult as VapiCall;
-      // Override audio settings to disable unsupported audio processing
       if (vapiRef.current.getDailyCallObject) {
         const dailyCall = vapiRef.current.getDailyCallObject();
         if (dailyCall) {
-          dailyCall.updateInputSettings({
-            audio: { processor: { type: "none" } },
-          });
-          console.log("Audio processor overridden to 'none'.");
-        }
-      }
-      // Initialize conversation in the database
-      if (call.id) {
-        try {
-          const token = document.cookie.split("token=")[1] || "";
-          console.log("Initializing conversation with token:", token);
-          const initResponse = await fetch("/api/save-conversation", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`,
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              callId: call.id,
-              transcript: "",
-              messages: [],
-              duration: 0,
-            }),
-          });
-          if (!initResponse.ok) {
-            console.error("Failed to initialize conversation");
-          } else {
-            console.log("Conversation initialized in database");
-          }
-        } catch (error) {
-          console.error("Error initializing conversation:", error);
+          dailyCall.updateInputSettings({ audio: { processor: { type: "none" } } });
         }
       }
       setCurrentCallId(call.id);
@@ -405,132 +390,93 @@ export default function Conversation() {
     }
   };
 
-  // Stop call and save conversation
+  // Handle call end and upload conversation
   const handleStopCall = async () => {
-    console.log("handleStopCall initiated");
-    if (!isCallActive) {
-      console.log("Call is not active, cannot stop");
-      return;
-    }
     try {
-      if (!vapiRef.current || !currentCallId) {
-        console.log("Missing vapiRef or currentCallId:", {
-          hasVapiRef: !!vapiRef.current,
-          currentCallId,
-        });
-        return;
+      if (vapiRef.current) {
+        await vapiRef.current.stop();
       }
-      console.log("Stopping call...");
-      await vapiRef.current.stop();
-      console.log("Call stopped successfully");
-      
-      // Add conversation history logging
-      console.log("=== Conversation History ===");
-      console.log("Full Transcript:", currentTranscript);
-      console.log("Messages:", messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      })));
-      console.log("========================");
-
-      // Wait a moment to ensure transcript events are processed
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      console.log("Final conversation state:", {
-        currentCallId,
-        transcript: currentTranscript,
-        messages: messages,
-        timeUsed,
-      });
-      try {
-        const token = document.cookie.split("token=")[1] || "";
-        const response = await fetch("/api/save-conversation", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            callId: currentCallId,
-            transcript: currentTranscript.trim(),
-            messages: messages.map((msg) => ({
-              role: msg.role,
-              content: msg.content,
-            })),
-            duration: timeUsed,
-          }),
-        });
-        const responseText = await response.text();
-        console.log("Save conversation response:", responseText);
-        if (!response.ok) {
-          throw new Error(`Failed to save conversation: ${responseText}`);
-        }
-      } catch (error) {
-        console.error("Error saving conversation:", error);
-      }
-      // Reset state after stopping call
       setIsCallActive(false);
-      setCurrentTranscript("");
-      setMessages([]);
-      setCurrentCallId(null);
+
+      if (conversationHistory.length > 0 && userId) {
+        // Format conversation for Vapi
+        const formattedConversation = conversationHistory
+          .map(entry => `${entry.role}: ${entry.content}`)
+          .join('\n\n');
+
+        try {
+          console.log('Uploading conversation to knowledge base...');
+          const response = await fetch('/api/knowledge-base/vapi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId,
+              action: 'upload',
+              content: formattedConversation,
+              timestamp: new Date().toISOString()
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Upload error details:', errorData);
+            throw new Error(`Failed to upload conversation: ${response.status} ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          console.log('Upload successful:', result);
+          setConversationHistory([]);
+        } catch (error) {
+          console.error('Error uploading conversation:', error);
+          // Don't clear conversation history on error so we can retry
+        }
+      }
     } catch (error) {
-      console.error("Error in handleStopCall:", error);
+      console.error('Error stopping call:', error);
     }
   };
 
-  // Also modify the periodic save useEffect
-  useEffect(() => {
-    let saveInterval: NodeJS.Timeout;
-    
-    if (isCallActive && currentCallId) {
-      console.log("Setting up periodic save interval");
-      saveInterval = setInterval(async () => {
-        if (messages.length === 0 && currentTranscript.length === 0) {
-          console.log("No content to save yet");
-          return;
-        }
+  // Add function to retrieve relevant context
+  const getRelevantContext = async (userInput: string) => {
+    if (!userId) return '';
 
-        console.log("Attempting periodic save");
-        try {
-          const token = document.cookie.split("token=")[1] || "";
-          const response = await fetch("/api/save-conversation", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${token}`,
-            },
-            credentials: "include",
-            body: JSON.stringify({
-              callId: currentCallId,
-              transcript: currentTranscript.trim(),
-              messages: messages.map((msg) => ({
-                role: msg.role,
-                content: msg.content,
-              })),
-              duration: timeUsed,
-              timestamp: new Date().toISOString()
-            }),
-          });
-
-          const result = await response.text();
-          console.log("Periodic save response:", result);
-
-          if (!response.ok) {
-            throw new Error(`Failed to save conversation: ${result}`);
-          }
-        } catch (error) {
-          console.error("Periodic save failed:", error);
-        }
-      }, 5000);
+    try {
+      const results = await knowledgeBaseService.searchKnowledgeBase(userId, userInput);
+      return results.entries?.map((entry: any) => entry.content).join('\n') || '';
+    } catch (error) {
+      console.error('Error getting context:', error);
+      return '';
     }
+  };
 
-    return () => {
-      if (saveInterval) {
-        console.log("Cleaning up save interval");
-        clearInterval(saveInterval);
+  // Update the fetchAssistantDetails function
+  const fetchAssistantDetails = async (assistantId: string) => {
+    try {
+      const response = await fetch(`/api/assistant/${assistantId}`);
+      if (!response.ok) throw new Error("Failed to fetch assistant details");
+      
+      const data = await response.json();
+      console.log("Assistant details:", data);
+      
+      // Update UI with knowledge base info if available
+      if (data.model?.knowledgeBase) {
+        setSelectedKnowledgeBase(data.model.knowledgeBase);
+        console.log("Knowledge base found:", data.model.knowledgeBase);
       }
-    };
-  }, [isCallActive, currentCallId, messages, currentTranscript, timeUsed]);
+      
+      return data;
+    } catch (error) {
+      console.error("Error fetching assistant details:", error);
+      return null;
+    }
+  };
+
+  // Call this function when the component loads or when assistantId changes
+  useEffect(() => {
+    if (vapiAssistantId) {
+      fetchAssistantDetails(vapiAssistantId);
+    }
+  }, [vapiAssistantId]);
 
   return (
     <div className="bg-black min-h-screen flex items-center justify-center">
@@ -543,7 +489,7 @@ export default function Conversation() {
         {isLoading ? (
           <div className="text-white text-center mb-6">Loading...</div>
         ) : !hasRequiredCredentials ? (
-          <div className="text-white text-center mb-6 p-4 rounded-lg bg-pink-600">
+          <div className="text-white text-center mb-6 p-4">
             Please set up your voice in the setup page first!
           </div>
         ) : hasReachedTimeLimit ? (
@@ -551,9 +497,7 @@ export default function Conversation() {
             You've reached your daily limit of 5 minutes. Please upgrade for unlimited conversations!
           </div>
         ) : isCallStarting ? (
-          <div className="text-white text-center mb-6 p-4 rounded-lg">
-            Starting conversation...
-          </div>
+          <div className="text-white text-center mb-6 p-4 rounded-lg">Starting conversation...</div>
         ) : null}
         <img
           src="BetterYou.png"
@@ -588,13 +532,10 @@ export default function Conversation() {
                   : ""
               }`}
             >
-              {isCallStarting ? "Starting..." : "Start Conversation"}
+              {isCallStarting ? "Starting..." : "Start"}
             </button>
             <button
-              onClick={() => {
-                console.log("Stop button clicked");
-                handleStopCall();
-              }}
+              onClick={handleStopCall}
               disabled={!isCallActive}
               className={`px-6 py-2 rounded-full font-semibold transition-all duration-200 ${
                 isCallActive
@@ -602,7 +543,7 @@ export default function Conversation() {
                   : "bg-gray-400 cursor-not-allowed"
               }`}
             >
-              End Conversation
+              End
             </button>
           </div>
         </div>
