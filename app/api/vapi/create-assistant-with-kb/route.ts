@@ -3,7 +3,6 @@ import { NextRequest } from "next/server";
 import { connectToMongoDB } from "@/dbConfig/dbconfig";
 import User from "@/models/User";
 import jwt from 'jsonwebtoken';
-import { VapiClient } from "@vapi-ai/server-sdk";
 import axios from "axios";
 import FormData from 'form-data';
 
@@ -61,7 +60,7 @@ export async function POST(request: NextRequest) {
       model: {
         provider: "openai",
         model: "gpt-4o-mini",
-        temperature: 0.7,
+        temperature: 0.5,
         maxTokens: 250,
         messages: [
           {
@@ -145,7 +144,7 @@ export async function POST(request: NextRequest) {
               searchType: "semantic",
               topK: 3,
               removeStopWords: true,
-              scoreThreshold: 0.7
+              scoreThreshold: 0.5
             },
             createPlan: {
               type: "create",
@@ -185,7 +184,7 @@ export async function POST(request: NextRequest) {
           model: {
             provider: "openai",
             model: "gpt-4o-mini",
-            temperature: 0.7,
+            temperature: 0.5,
             maxTokens: 250,
             knowledgeBaseId: kbId,
             messages: [
