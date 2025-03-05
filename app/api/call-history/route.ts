@@ -65,7 +65,7 @@ export async function PUT(request: NextRequest) {
     
     const body = await request.json();
     
-    const { userId, callId, endTime, messages, transcript } = body;
+    const { userId, callId, endTime, messages, transcript, summary } = body;
     
     if (!userId || !callId) {
       console.error(`❌ Missing required fields:`, { userId, callId });
@@ -95,11 +95,6 @@ export async function PUT(request: NextRequest) {
     if (transformedMessages.length > 0) {
       console.log(`🔄 Transformed message sample:`, JSON.stringify(transformedMessages[0], null, 2));
     }
-    
-    // Extract summary from the call data if available
-    const summary = messages?.rawCallData?.summary || 
-                   messages?.rawCallData?.analysis?.summary || 
-                   '';
     
     console.log(`🔄 Updating call record for call ${callId}`);
     const updatedCall = await CallHistory.findOneAndUpdate(

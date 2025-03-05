@@ -2,7 +2,6 @@
 import Vapi from "@vapi-ai/web";
 import { useState, useEffect, useRef } from "react";
 import { vapiKnowledgeBase } from '@/utils/vapiKnowledgeBase';
-import { knowledgeBaseService } from '@/utils/knowledgeBaseService';
 
 interface VapiMessage {
   role: "user" | "assistant" | "system";
@@ -33,8 +32,6 @@ interface ConversationEntry {
 }
 
 const FREE_TIME_LIMIT_MINUTES = 10;
-
-const { getKnowledgeBaseId } = vapiKnowledgeBase;
 
 export default function Conversation() {
   const initialMessage = "Hello! I'm the best version of yourself. I'm here to help you fulfill your true potential.";
@@ -100,6 +97,11 @@ export default function Conversation() {
   // Add this state variable
   const [selectedKnowledgeBase, setSelectedKnowledgeBase] = useState<string | null>(null);
 
+  const [fullTranscript, setFullTranscript] = useState<string>('');
+
+  // Add this state for tracking Vapi processing status
+  const [isWaitingForVapi, setIsWaitingForVapi] = useState(false);
+
   const vapiRef = useRef<Vapi | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -138,64 +140,78 @@ export default function Conversation() {
 
   // Global message handler
   const messageHandler = async (message: VapiInputMessage) => {
-    console.log("🎯 Received message event:", message);
+    console.log("🎯 Received message event:", JSON.stringify(message, null, 2));
   
     try {
       if (message.type === "transcript") {
+        const transcript = message.transcript || "";
+        console.log(`📝 Transcript chunk: "${transcript}"`);
+        
         setCurrentTranscript((prev) => {
-          const updated = prev + " " + (message.transcript || "");
+          const updated = prev + " " + transcript;
+          console.log(`📝 Current transcript now: "${updated}"`);
           return updated.trim();
+        });
+        
+        // Also accumulate to the full transcript
+        setFullTranscript(prev => {
+          const newFull = prev + " " + transcript;
+          console.log(`📜 Full transcript length: ${newFull.length} chars`);
+          return newFull;
         });
       } else if (message.type === "voice-input") {
         const input = message.input;
         if (!input) return;
 
-        // Add user message to history
-        const entry: ConversationEntry = {
-          role: "user",
-          content: input.trim(),
-          timestamp: new Date().toISOString()
-        };
-        setConversationHistory(prev => [...prev, entry]);
+        console.log(`🗣️ User input: "${input}" (length: ${input?.length})`);
         
-        // Handle emotion if available
-        if (message.emotion) {
-          setCurrentEmotion(message.emotion);
-          console.log("😊 Detected emotion:", message.emotion);
-        }
-
+        // Store complete message object with conversation metadata
         const userMessage: VapiMessage = {
-          role: 'user' as const,
+          role: 'user',
           content: input.trim(),
           timestamp: new Date().toISOString(),
           conversationId: currentCallId || undefined
         };
         
+        // Add to messages state
         setMessages(prev => [...prev, userMessage]);
-      } else if (message.role === 'assistant' && message.content) {
-        console.log('🤖 Assistant message:', message);
         
-        // Add assistant message to history
-        const entry: ConversationEntry = {
-          role: "assistant",
-          content: message.content.trim(),
-          timestamp: new Date().toISOString()
+        // Add to conversation history with proper formatting
+        setConversationHistory(prev => [
+          ...prev, 
+          {
+            role: "user",
+            content: input.trim(),
+            timestamp: new Date().toISOString()
+          }
+        ]);
+      } else if (message.role === 'assistant' && message.content) {
+        console.log(`🤖 Assistant response: "${message.content}" (length: ${message.content.length})`);
+        
+        // Store complete assistant message with proper metadata
+        const assistantMessage: VapiMessage = {
+          role: 'assistant',
+          content: message.content,
+          timestamp: new Date().toISOString(),
+          conversationId: currentCallId || undefined
         };
-        setConversationHistory(prev => [...prev, entry]);
-
-        if (message.content.trim()) {
-          const assistantMessage: VapiMessage = {
-            role: 'assistant',
-            content: message.content.trim(),
-            timestamp: message.timestamp || new Date().toISOString(),
-            conversationId: currentCallId || undefined
-          };
-          setMessages(prev => [...prev, assistantMessage]);
-        }
+        
+        // Add to messages state
+        setMessages(prev => [...prev, assistantMessage]);
+        
+        // Add to conversation history with proper formatting
+        setConversationHistory(prev => [
+          ...prev, 
+          {
+            role: "assistant",
+            content: message.content,
+            timestamp: new Date().toISOString()
+          }
+        ]);
         setCurrentTranscript('');
       }
     } catch (error) {
-      console.error('Error handling message:', error);
+      console.error('❌ Error handling message:', error);
     }
   };
 
@@ -374,14 +390,31 @@ export default function Conversation() {
         throw new Error("No valid assistant ID available");
       }
 
+      console.log(`🚀 Starting call with assistant ID: ${vapiAssistantId}`);
       const call = callResult as VapiCall;
-      if (vapiRef.current.getDailyCallObject) {
-        const dailyCall = vapiRef.current.getDailyCallObject();
-        if (dailyCall) {
-          dailyCall.updateInputSettings({ audio: { processor: { type: "none" } } });
-        }
-      }
+      console.log(`📞 Call created with ID: ${call.id}`);
       setCurrentCallId(call.id);
+      
+      // Create a new call record in MongoDB
+      try {
+        console.log(`💾 Creating MongoDB record for call ${call.id}`);
+        const response = await fetch('/api/call-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            callId: call.id,
+            vapiAssistantId: vapiAssistantId,
+            startTime: new Date().toISOString()
+          })
+        });
+        
+        const result = await response.json();
+        console.log(`💾 MongoDB call record created:`, result);
+      } catch (error) {
+        console.error('❌ Error creating call record:', error);
+      }
+      
       setIsCallActive(true);
     } catch (error) {
       console.error("Error starting call:", error);
@@ -390,62 +423,130 @@ export default function Conversation() {
     }
   };
 
-  // Handle call end and upload conversation
+  // Modify the handleStopCall function to retry getting messages
   const handleStopCall = async () => {
     try {
+      console.log(`⏹️ Stopping call ${currentCallId}`);
       if (vapiRef.current) {
         await vapiRef.current.stop();
       }
       setIsCallActive(false);
+      setIsWaitingForVapi(true); // Show waiting UI
 
-      if (conversationHistory.length > 0 && userId) {
-        // Format conversation for Vapi
-        const formattedConversation = conversationHistory
-          .map(entry => `${entry.role}: ${entry.content}`)
-          .join('\n\n');
-
-        try {
-          console.log('Uploading conversation to knowledge base...');
-          const response = await fetch('/api/knowledge-base/vapi', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId,
-              action: 'upload',
-              content: formattedConversation,
-              timestamp: new Date().toISOString()
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Upload error details:', errorData);
-            throw new Error(`Failed to upload conversation: ${response.status} ${response.statusText}`);
+      if (currentCallId && userId) {
+        console.log(`💾 Saving call data to MongoDB for call ${currentCallId}`);
+        
+        // Add a retry mechanism for fetching messages
+        let vapiMessages = [];
+        let retryCount = 0;
+        const MAX_RETRIES = 5;
+        // Declare messagesData variable outside the loop 
+        let messagesData = null;
+        
+        while (retryCount < MAX_RETRIES) {
+          console.log(`🔄 Fetching messages from Vapi API for call ${currentCallId} (attempt ${retryCount + 1})`);
+          
+          // Add retry=true to ensure we wait and retry
+          const messagesResponse = await fetch(`/api/vapi/call-messages?callId=${currentCallId}&retry=true`);
+          
+          if (!messagesResponse.ok) {
+            console.error(`❌ Failed to fetch messages: ${messagesResponse.status} ${messagesResponse.statusText}`);
+            retryCount++;
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retrying
+            continue;
           }
+          
+          // Update messagesData with each response
+          messagesData = await messagesResponse.json();
+          
+          // Check if call is complete AND has messages
+          const hasMessages = messagesData.messages && messagesData.messages.length > 0;
+          const isCallComplete = messagesData.rawCallData && 
+            (messagesData.rawCallData.status === 'ended' || messagesData.rawCallData.status === 'failed');
+          
+          if (!isCallComplete) {
+            console.log(`⏳ Call still processing in Vapi (status: ${messagesData.rawCallData?.status}). Waiting 2 seconds before retry ${retryCount + 1}/${MAX_RETRIES}`);
+            retryCount++;
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          
+          if (!hasMessages) {
+            console.log(`⚠️ Call complete but no messages retrieved. Waiting 2 seconds before retry ${retryCount + 1}/${MAX_RETRIES}`);
+            retryCount++;
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            continue;
+          }
+          
+          // Successfully got messages from a completed call
+          vapiMessages = messagesData.messages;
+          console.log(`✅ Retrieved ${vapiMessages.length} messages from completed call`);
+          break;
+        }
+        
+        // Extract summary directly from the proper location in the response
+        const summary = messagesData?.rawCallData?.summary || 
+                        messagesData?.rawCallData?.analysis?.summary || '';
 
-          const result = await response.json();
-          console.log('Upload successful:', result);
-          setConversationHistory([]);
-        } catch (error) {
-          console.error('Error uploading conversation:', error);
-          // Don't clear conversation history on error so we can retry
+        // Log the summary for debugging
+        console.log(`📝 Call summary: "${summary.substring(0, 100)}${summary.length > 100 ? '...' : ''}"`);
+
+        // Save the call data to MongoDB with correctly structured data
+        const response = await fetch('/api/call-history', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            callId: currentCallId,
+            endTime: new Date().toISOString(),
+            messages: vapiMessages,
+            transcript: fullTranscript,
+            summary // Send the summary as a separate field
+          })
+        });
+        
+        const result = await response.json();
+        console.log(`💾 MongoDB call record updated:`, result);
+        
+        // Original knowledge base code
+        if (conversationHistory.length > 0) {
+          // Format conversation for Vapi
+          const formattedConversation = conversationHistory
+            .map(entry => `${entry.role}: ${entry.content}`)
+            .join('\n\n');
+
+          try {
+            console.log('Uploading conversation to knowledge base...');
+            const response = await fetch('/api/knowledge-base/vapi', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId,
+                action: 'upload',
+                content: formattedConversation,
+                timestamp: new Date().toISOString()
+              })
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error('Upload error details:', errorData);
+              throw new Error(`Failed to upload conversation: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            console.log('Upload successful:', result);
+            setConversationHistory([]);
+          } catch (error) {
+            console.error('Error uploading conversation:', error);
+            // Don't clear conversation history on error so we can retry
+          }
         }
       }
     } catch (error) {
-      console.error('Error stopping call:', error);
-    }
-  };
-
-  // Add function to retrieve relevant context
-  const getRelevantContext = async (userInput: string) => {
-    if (!userId) return '';
-
-    try {
-      const results = await knowledgeBaseService.searchKnowledgeBase(userId, userInput);
-      return results.entries?.map((entry: any) => entry.content).join('\n') || '';
-    } catch (error) {
-      console.error('Error getting context:', error);
-      return '';
+      console.error('❌ Error stopping call:', error);
+    } finally {
+      setIsWaitingForVapi(false);
     }
   };
 
@@ -498,6 +599,10 @@ export default function Conversation() {
           </div>
         ) : isCallStarting ? (
           <div className="text-white text-center mb-6 p-4 rounded-lg">Starting conversation...</div>
+        ) : isWaitingForVapi ? (
+          <div className="text-white text-center mb-6 p-4 rounded-lg bg-blue-900 animate-pulse">
+            Processing conversation data... Please wait.
+          </div>
         ) : null}
         <img
           src="BetterYou.png"

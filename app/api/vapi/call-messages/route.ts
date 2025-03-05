@@ -118,11 +118,17 @@ export async function GET(request: NextRequest) {
     
     console.log(`📊 Final message count: ${vapiMessages.length}`);
     
+    // Add a clearer inProgress flag to the response
+    const inProgress = call.status !== 'ended' && call.status !== 'failed';
+
     return NextResponse.json({
       success: true,
       callId,
       messages: vapiMessages,
-      rawCallData: call // Include the raw data for debugging
+      rawCallData: call,
+      inProgress: call.status !== 'ended' && call.status !== 'failed',
+      hasMessages: vapiMessages.length > 0,
+      status: call.status
     });
   } catch (error) {
     console.error("Error fetching call messages");
