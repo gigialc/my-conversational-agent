@@ -4,6 +4,8 @@ import { connectToMongoDB } from "@/dbConfig/dbconfig";
 import User from "@/models/User";
 import jwt from 'jsonwebtoken';
 import { VapiClient } from "@vapi-ai/server-sdk";
+import { Onboarding } from "@/models/Onboarding";
+import axios from "axios";
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,6 +35,20 @@ export async function POST(request: NextRequest) {
     // Get request body
     const { firstMessage, systemPrompt, config, transcriber } = await request.json();
 
+    // Get onboarding data to personalize the assistant
+    const onboarding = await Onboarding.findOne({ userId: user._id });
+    
+    // Create personalized prompt based on onboarding data
+    let personalizedPrompt = `You are an advanced AI agent designed to embody the aspirational 'best version' of the individual you're speaking with. Your role is to act as their ideal self: confident, motivated, and fully aligned with their personal values and goals. Your responses should be empathetic, uplifting, and tailored to inspire action and positive thinking.`;
+    
+    // Add personalized information if available
+    if (onboarding) {
+      personalizedPrompt += `\n\nAbout the user: ${onboarding.aboutYou}`;
+      personalizedPrompt += `\n\nThe user's goals: ${onboarding.goals}`;
+      personalizedPrompt += `\n\nThe user's ideal self: ${onboarding.idealSelf}`;
+      personalizedPrompt += `\n\nUse this information to provide highly personalized guidance that reflects the user's aspirations and self-image.`;
+    }
+
     // Initialize Vapi with SDK
     const vapi = new VapiClient({
       token: process.env.VAPI_API_KEY || ""
@@ -49,8 +65,8 @@ export async function POST(request: NextRequest) {
         knowledgeBase: config.knowledgeBaseId,
         messages: [
           {
-            role: systemPrompt.role,
-            content: systemPrompt.content
+            role: "system",
+            content: personalizedPrompt
           }
         ]
       },
@@ -73,7 +89,38 @@ export async function POST(request: NextRequest) {
     await user.save();
     console.log("User Updated with Assistant ID:", user);
 
-    return NextResponse.json({ vapiAssistantId: assistant.id }, { status: 200 });
+    // Create assistant with Vapi API
+    const assistantData = {
+      name: "BetterYou Personal Assistant",
+      model: {
+        provider: "openai",
+        model: "gpt-3.5-turbo",
+        temperature: 0.7,
+        systemPrompt: personalizedPrompt
+      },
+      voice: {
+        provider: "11labs",
+        voiceId: "11labs-voice-id"  // You'll set this later after voice cloning
+      },
+      // Other settings...
+    };
+    
+    const response = await axios.post(
+      "https://api.vapi.ai/assistant",
+      assistantData,
+      {
+        headers: {
+          "Authorization": `Bearer ${process.env.VAPI_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    
+    return NextResponse.json({ 
+      success: true, 
+      assistantId: response.data.id,
+      message: "Assistant created with personalized information" 
+    });
 
   } catch (error: any) {
     console.error('Error creating Vapi assistant:', error);
