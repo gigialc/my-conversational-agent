@@ -6,34 +6,45 @@ import User from "@/models/User";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("Onboarding POST request received");
     await connectToMongoDB();
+    console.log("MongoDB connected");
     
-    // Get token from cookie - same auth pattern as other routes
+    // Get token from cookie
     const token = request.cookies.get('token')?.value;
+    console.log("Token present:", !!token);
     
     if (!token) {
-      return NextResponse.json({ error: 'Unauthorized: No token provided' }, { status: 401 });
+      return NextResponse.json({
+        error: 'Unauthorized: No token provided'
+      }, { status: 401 });
     }
     
     // Verify token
     let decodedToken;
     try {
       decodedToken = jwt.verify(token, process.env.TOKEN_SECRET!);
-      console.log("Decoded Token:", decodedToken);
+      console.log("Token decoded successfully:", decodedToken);
     } catch (err) {
+      console.error("Token verification failed:", err);
       return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
     }
     
-    // Get user from email in token
+    // Extract user data
     const { email } = decodedToken as { email: string };
-    const user = await User.findOne({ email });
+    console.log("Looking up user with email:", email);
     
+    const user = await User.findOne({ email });
     if (!user) {
-      return NextResponse.json({ message: "User not found" }, { status: 404 });
+      console.log("User not found for email:", email);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
     
-    const userId = user._id;
-    const { aboutYou, goals, idealSelf } = await request.json();
+    console.log("User found:", user._id);
+    const requestData = await request.json();
+    console.log("Request data:", requestData);
+    
+    const { aboutYou, goals, idealSelf } = requestData;
     
     // Validate inputs
     if (!aboutYou || !goals || !idealSelf) {
@@ -41,22 +52,31 @@ export async function POST(request: NextRequest) {
     }
     
     // Save or update onboarding info
+    const onboardingData = {
+      userId: user._id.toString(),
+      aboutYou,
+      goals,
+      idealSelf,
+      updatedAt: new Date()
+    };
+    
+    console.log("Saving onboarding data:", onboardingData);
+    
     const onboarding = await Onboarding.findOneAndUpdate(
-      { userId },
-      { 
-        userId,
-        aboutYou,
-        goals,
-        idealSelf,
-        updatedAt: new Date()
-      },
+      { userId: user._id.toString() },
+      onboardingData,
       { upsert: true, new: true }
     );
+    
+    console.log("Onboarding saved successfully:", onboarding);
     
     return NextResponse.json({ success: true, onboarding });
   } catch (error) {
     console.error("Error saving onboarding data:", error);
-    return NextResponse.json({ error: "Failed to save onboarding data" }, { status: 500 });
+    return NextResponse.json({ 
+      error: "Failed to save onboarding data", 
+      details: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }
 

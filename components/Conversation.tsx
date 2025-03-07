@@ -311,10 +311,28 @@ export default function Conversation() {
     try {
       console.log('Creating new assistant with knowledge base');
       
-      // Call your server-side API endpoint
+      // Get onboarding data for personalization
+      let finalSystemPrompt = systemPrompt.content;
+      try {
+        const onboardingResponse = await fetch("/api/onboarding");
+        const onboardingData = await onboardingResponse.json();
+        
+        if (onboardingData.hasCompletedOnboarding && onboardingData.onboarding) {
+          console.log("Adding onboarding data to prompt");
+          finalSystemPrompt += `\n\nIMPORTANT - USER INFORMATION:\n`;
+          finalSystemPrompt += `About the user: ${onboardingData.onboarding.aboutYou}\n`;
+          finalSystemPrompt += `User's goals: ${onboardingData.onboarding.goals}\n`;
+          finalSystemPrompt += `User's ideal self: ${onboardingData.onboarding.idealSelf}\n`;
+          finalSystemPrompt += `Use this information to provide highly personalized guidance that reflects the user's aspirations and self-image.`;
+        }
+      } catch (err) {
+        console.log("Could not fetch onboarding data, using default prompt");
+      }
+
+      // Call your server-side API endpoint (unchanged except for using finalSystemPrompt)
       const response = await fetch("/api/vapi/create-assistant-with-kb", {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${document.cookie.split("token=")[1] || ""}`
         },
@@ -323,14 +341,14 @@ export default function Conversation() {
           firstMessage: initialMessage,
           systemPrompt: {
             role: 'system',
-            content: systemPrompt.content
+            content: finalSystemPrompt
           },
           config: {
             provider: "openai",
             model: "gpt-4o-mini",
             temperature: 1.0,
             maxTokens: 250,
-            systemMessage: systemPrompt.content
+            systemMessage: finalSystemPrompt
           },
           transcriber: {
             provider: "deepgram",
@@ -342,6 +360,7 @@ export default function Conversation() {
         credentials: 'include'
       });
 
+      // Rest remains unchanged
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || "Failed to create assistant");
@@ -578,6 +597,26 @@ export default function Conversation() {
       fetchAssistantDetails(vapiAssistantId);
     }
   }, [vapiAssistantId]);
+
+  // Find where the assistant is initialized or referenced
+  // Look for patterns like:
+
+  // This might be overriding your personalized assistant:
+  useEffect(() => {
+    async function initializeCall() {
+      // If there's a direct call to VAPI API here, it might be
+      // bypassing your personalized assistant
+    }
+  }, []);
+
+  // Make sure you're using the assistant ID from the user record:
+  const fetchAssistantId = async () => {
+    const response = await fetch("/api/getVoiceId");
+    const data = await response.json();
+    if (data.vapiAssistantId) {
+      setVapiAssistantId(data.vapiAssistantId);
+    }
+  };
 
   return (
     <div className="bg-black min-h-screen flex items-center justify-center">

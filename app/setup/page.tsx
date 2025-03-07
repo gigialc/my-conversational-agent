@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import VoiceSetup from "@/components/VoiceSetup"; // Your existing voice setup component
+import VoiceSetup from "@/components/Setup";
 
 export default function SetupPage() {
   const router = useRouter();

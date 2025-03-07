@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import Setup from '../../components/Setup';
 import Conversation from '../../components/Conversation'
 import { signOut, useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
   const [currentTab, setCurrentTab] = useState('setup');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { data: session } = useSession();
   const [showSetupOption, setShowSetupOption] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const checkAssistantId = async () => {
@@ -77,6 +79,12 @@ export default function Home() {
               Conversation
             </button>
             <button
+              onClick={() => router.push('/onboarding')}
+              className="px-6 py-2 rounded-md hover:bg-gray-800"
+            >
+              About You
+            </button>
+            <button
               onClick={handleSignOut}
               className="px-6 py-2 bg-gray-600 text-white rounded-full hover:bg-gray-700 transition-colors"
             >
@@ -111,6 +119,15 @@ export default function Home() {
               }`}
             >
               Conversation
+            </button>
+            <button
+              onClick={() => {
+                router.push('/onboarding');
+                setIsMenuOpen(false);
+              }}
+              className="block w-full text-left px-6 py-3 rounded-md hover:bg-gray-800"
+            >
+              About You
             </button>
             <button
               onClick={handleSignOut}

@@ -4,8 +4,8 @@ import { connectToMongoDB } from "@/dbConfig/dbconfig";
 import User from "@/models/User";
 import jwt from 'jsonwebtoken';
 import { VapiClient } from "@vapi-ai/server-sdk";
-import { Onboarding } from "@/models/Onboarding";
 import axios from "axios";
+import { Onboarding } from "@/models/Onboarding";
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,17 +37,24 @@ export async function POST(request: NextRequest) {
 
     // Get onboarding data to personalize the assistant
     const onboarding = await Onboarding.findOne({ userId: user._id });
-    
-    // Create personalized prompt based on onboarding data
-    let personalizedPrompt = `You are an advanced AI agent designed to embody the aspirational 'best version' of the individual you're speaking with. Your role is to act as their ideal self: confident, motivated, and fully aligned with their personal values and goals. Your responses should be empathetic, uplifting, and tailored to inspire action and positive thinking.`;
-    
+
+    // Start with the existing system prompt
+    let personalizedPrompt = systemPrompt.content || "You are an advanced AI agent designed to embody the aspirational 'best version' of the individual you're speaking with.";
+
     // Add personalized information if available
     if (onboarding) {
-      personalizedPrompt += `\n\nAbout the user: ${onboarding.aboutYou}`;
-      personalizedPrompt += `\n\nThe user's goals: ${onboarding.goals}`;
-      personalizedPrompt += `\n\nThe user's ideal self: ${onboarding.idealSelf}`;
-      personalizedPrompt += `\n\nUse this information to provide highly personalized guidance that reflects the user's aspirations and self-image.`;
+      console.log("Adding onboarding data to existing prompt");
+      personalizedPrompt += `\n\nIMPORTANT - USER INFORMATION:\n`;
+      personalizedPrompt += `About the user: ${onboarding.aboutYou}\n\n`;
+      personalizedPrompt += `The user's goals: ${onboarding.goals}\n\n`;
+      personalizedPrompt += `The user's ideal self: ${onboarding.idealSelf}\n\n`;
+      personalizedPrompt += `Use this information to provide highly personalized guidance that reflects the user's aspirations and self-image.`;
     }
+
+    // Add this to log the complete personalized prompt
+    console.log("\n===== FINAL PERSONALIZED PROMPT =====");
+    console.log(personalizedPrompt);
+    console.log("======================================\n");
 
     // Initialize Vapi with SDK
     const vapi = new VapiClient({

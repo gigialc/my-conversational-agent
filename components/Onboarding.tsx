@@ -27,20 +27,29 @@ export default function Onboarding() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
+      console.log("Submitting onboarding data:", answers);
+      
       const response = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Important for sending cookies
         body: JSON.stringify(answers),
       });
-
+      
+      const data = await response.json();
+      console.log("Onboarding API response:", data);
+      
       if (response.ok) {
-        // Redirect to voice setup page
-        router.push("/setup"); 
+        // Show success message
+        alert("Your profile information has been saved!");
+        router.push("/home");
       } else {
-        console.error("Failed to save onboarding information");
+        console.error("Failed to save onboarding info:", data.error);
+        alert("Error saving your information: " + (data.error || "Unknown error"));
       }
     } catch (error) {
       console.error("Error saving onboarding data:", error);
+      alert("Error connecting to server. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -49,7 +58,7 @@ export default function Onboarding() {
   return (
     <div className="bg-black min-h-screen flex items-center justify-center text-white">
       <div className="max-w-xl w-full px-4 py-8 bg-gray-900 rounded-lg shadow-lg">
-        <h1 className="text-2xl font-bold text-center mb-6">Welcome to BetterYou</h1>
+        <h1 className="text-2xl font-bold text-center mb-6">Welcome to Mirai</h1>
         <p className="text-center mb-8">
           Let's get to know you better so we can create your personalized experience
         </p>
