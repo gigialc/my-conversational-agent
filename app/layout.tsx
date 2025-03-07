@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { AuthProvider } from "../components/auth";
+import { Analytics } from "@vercel/analytics/react"
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -28,6 +29,7 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-screen">
         <AuthProvider>{children}</AuthProvider>
+        <Analytics />
       </body>
     </html>
   )
