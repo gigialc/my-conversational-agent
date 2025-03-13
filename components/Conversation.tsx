@@ -69,6 +69,7 @@ export default function Conversation() {
       if (!userId) return;
       
       setIsLoading(true);
+      console.log('Checking user status...');
       
       try {
         // First check if user has completed onboarding
@@ -123,6 +124,24 @@ export default function Conversation() {
         if (credsData.voiceId) {
           setHasRequiredCredentials(true);
           setShowSetup(false);
+          
+          // Check if user already has an assistant ID in the database
+          if (credsData.vapiAssistantId) {
+            // If they do, skip creation since assistant already exists
+            console.log('Assistant already exists with ID:', credsData.vapiAssistantId);
+          } else {
+            // Only create a new assistant if they don't have one in DB
+            console.log('No existing assistant found, creating new one...');
+            try {
+              const assistantId = await createAssistant();
+              if (!assistantId) {
+                throw new Error('Failed to create assistant');
+              }
+              console.log('Successfully created new assistant with ID:', assistantId);
+            } catch (error) {
+              console.error("Error creating assistant:", error);
+            }
+          }
         } else {
           // If we don't have voice ID but onboarding is complete, 
           // there was an issue with voice cloning - go back to onboarding
@@ -141,7 +160,7 @@ export default function Conversation() {
     };
     
     checkUserStatus();
-  }, [userId]);
+  }, [userId]); // Only depend on userId changes
 
   // Update time used during an active call
   useEffect(() => {
@@ -371,13 +390,6 @@ export default function Conversation() {
           </div>
         )}
         
-        {/* Simple transcript display */}
-        {isCallActive && currentTranscript && (
-          <div className="mt-6 p-4 bg-gray-800 rounded-lg text-white max-w-md w-full">
-            <p className="italic text-gray-400">You said:</p>
-            <p>{currentTranscript}</p>
-          </div>
-        )}
       </div>
     </div>
   );

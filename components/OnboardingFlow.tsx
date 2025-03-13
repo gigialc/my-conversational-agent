@@ -36,6 +36,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
   const [isOnboardingCallActive, setIsOnboardingCallActive] = useState(false);
   const [isOnboardingCallStarting, setIsOnboardingCallStarting] = useState(false);
   const [isProcessingOnboardingResponse, setIsProcessingOnboardingResponse] = useState(false);
+  const [isTransitioningStep, setIsTransitioningStep] = useState(false);
 
   // API key and voice cloning state
   const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
@@ -353,6 +354,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
       
       if (data.success) {
         setOnboardingResponses(data.onboardingResponse);
+        setIsTransitioningStep(true);
         
         // Move to next question or finish question flow and go to API key
         if (data.allCompleted) {
@@ -366,14 +368,17 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
           } else {
             setOnboardingStep('apiKey'); // Move to API key collection
           }
-          
-          // Reset state for next question
+        }
+        
+        // Reset state for next question after a short delay
+        setTimeout(() => {
           setCurrentTranscript('');
           setFullTranscript('');
           setOnboardingCallId(null);
           setCurrentOnboardingAssistantId(null);
           setMessages([]); // Clear messages for next question
-        }
+          setIsTransitioningStep(false);
+        }, 1000); // 1 second delay for smooth transition
       } else {
         throw new Error(data.error || 'Failed to save response');
       }
@@ -401,43 +406,50 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
           throw new Error('Failed to fetch onboarding responses');
         }
         responses = await response.json();
-        // Update state for future reference
         setOnboardingResponses(responses);
       }
 
-      // Get audio from one of the onboarding call recordings
-      // Prioritize the most recent call (idealSelf) as it's likely to be higher quality
-      const callId = responses.idealSelf?.callId || 
-                     responses.goals?.callId || 
-                     responses.aboutYou?.callId;
+      // Get all available call IDs
+      const callIds = [
+        responses.idealSelf?.callId,
+        responses.goals?.callId,
+        responses.aboutYou?.callId
+      ].filter(Boolean);
 
-      if (!callId) {
+      if (callIds.length === 0) {
         throw new Error('No call recordings found from onboarding');
       }
 
-      console.log('Using call ID for voice cloning:', callId);
-      console.log('From onboarding response:', 
-        callId === responses.idealSelf?.callId ? 'idealSelf' :
-        callId === responses.goals?.callId ? 'goals' : 'aboutYou');
+      console.log('Found call IDs for voice cloning:', callIds);
 
-      // Fetch audio from our API endpoint
-      const audioResponse = await fetch(`/api/vapi/call-audio?callId=${callId}`);
+      // Fetch audio from all calls and combine them
+      const audioChunks: Blob[] = [];
       
-      if (!audioResponse.ok) {
-        const errorText = await audioResponse.text();
-        throw new Error(`Failed to fetch call audio: ${audioResponse.status} ${errorText}`);
+      for (const callId of callIds) {
+        console.log(`Fetching audio for call: ${callId}`);
+        const audioResponse = await fetch(`/api/vapi/call-audio?callId=${callId}`);
+        
+        if (!audioResponse.ok) {
+          console.warn(`Failed to fetch audio for call ${callId}, skipping...`);
+          continue;
+        }
+        
+        const audioBlob = await audioResponse.blob();
+        if (audioBlob.size > 1000) { // Only add if size is reasonable
+          audioChunks.push(audioBlob);
+        }
       }
-      
-      const audioBlob = await audioResponse.blob();
-      
-      // Check if the blob is empty or too small
-      if (audioBlob.size < 1000) { // Less than 1KB is likely not valid audio
-        throw new Error(`Audio file is too small (${audioBlob.size} bytes), likely empty or invalid`);
+
+      if (audioChunks.length === 0) {
+        throw new Error('No valid audio recordings found');
       }
+
+      // Combine all audio chunks into one blob
+      const combinedBlob = new Blob(audioChunks, { type: 'audio/wav' });
       
-      console.log(`Successfully retrieved audio: ${(audioBlob.size / 1024).toFixed(2)}KB`);
+      console.log(`Combined audio size: ${(combinedBlob.size / 1024).toFixed(2)}KB from ${audioChunks.length} recordings`);
       
-      return audioBlob;
+      return combinedBlob;
     } catch (error) {
       console.error('Error converting audio for voice cloning:', error);
       throw error;
@@ -816,6 +828,17 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
             </div>
           </div>
         </>
+      )}
+      
+      {/* Step transition overlay */}
+      {isTransitioningStep && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-lg p-6 text-center">
+            <div className="animate-spin mb-4 mx-auto h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+            <p className="text-white">Processing your response...</p>
+            <p className="text-gray-400 text-sm mt-2">Preparing next question</p>
+          </div>
+        </div>
       )}
     </div>
   );
