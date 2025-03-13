@@ -1,38 +1,19 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import VoiceSetup from "@/components/Setup";
 
 export default function SetupPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-
+  
   useEffect(() => {
-    async function checkOnboardingStatus() {
-      try {
-        const response = await fetch("/api/onboarding");
-        const data = await response.json();
-        
-        setHasCompletedOnboarding(data.hasCompletedOnboarding);
-        setIsLoading(false);
-        
-        // Redirect to onboarding if not completed
-        if (!data.hasCompletedOnboarding) {
-          router.push("/onboarding");
-        }
-      } catch (error) {
-        console.error("Error checking onboarding status:", error);
-        setIsLoading(false);
-      }
-    }
-    
-    checkOnboardingStatus();
+    // Redirect to home where the Conversation component will handle 
+    // the proper flow (onboarding or setup as needed)
+    router.push("/home");
   }, [router]);
 
-  if (isLoading) {
-    return <div className="flex justify-center items-center h-screen bg-black text-white">Loading...</div>;
-  }
-
-  return hasCompletedOnboarding ? <VoiceSetup /> : null;
+  return (
+    <div className="bg-black min-h-screen flex items-center justify-center">
+      <div className="text-white">Redirecting to onboarding...</div>
+    </div>
+  );
 } 
