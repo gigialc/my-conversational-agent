@@ -1,5 +1,11 @@
 import mongoose, { Schema } from 'mongoose';
 
+interface Message {
+  role: string;
+  content: string;
+  timestamp?: string;
+}
+
 const OnboardingResponseSchema = new Schema({
   userId: {
     type: String,
@@ -7,7 +13,11 @@ const OnboardingResponseSchema = new Schema({
     index: true,
   },
   aboutYou: {
-    transcript: String,
+    messages: [{
+      role: String,
+      content: String,
+      timestamp: String
+    }],
     callId: String,
     vapiAssistantId: String,
     completed: {
@@ -16,7 +26,11 @@ const OnboardingResponseSchema = new Schema({
     }
   },
   goals: {
-    transcript: String,
+    messages: [{
+      role: String,
+      content: String,
+      timestamp: String
+    }],
     callId: String,
     vapiAssistantId: String,
     completed: {
@@ -25,7 +39,11 @@ const OnboardingResponseSchema = new Schema({
     }
   },
   idealSelf: {
-    transcript: String,
+    messages: [{
+      role: String,
+      content: String,
+      timestamp: String
+    }],
     callId: String,
     vapiAssistantId: String,
     completed: {
@@ -50,19 +68,19 @@ const OnboardingResponseSchema = new Schema({
 export interface OnboardingResponseDocument extends mongoose.Document {
   userId: string;
   aboutYou: {
-    transcript: string;
+    messages: Message[];
     callId: string;
     vapiAssistantId: string;
     completed: boolean;
   };
   goals: {
-    transcript: string;
+    messages: Message[];
     callId: string;
     vapiAssistantId: string;
     completed: boolean;
   };
   idealSelf: {
-    transcript: string;
+    messages: Message[];
     callId: string;
     vapiAssistantId: string;
     completed: boolean;

@@ -70,15 +70,37 @@ export function useAssistantManager({ userId }: UseAssistantManagerProps) {
       // Get onboarding data for personalization
       let finalSystemPrompt = systemPromptContent;
       try {
-        const onboardingResponse = await fetch("/api/onboarding");
+        const onboardingResponse = await fetch("/api/onboarding-responses");
         const onboardingData = await onboardingResponse.json();
         
-        if (onboardingData.hasCompletedOnboarding && onboardingData.onboarding) {
+        if (onboardingData.success && onboardingData.onboardingResponse) {
           console.log("Adding onboarding data to prompt");
           finalSystemPrompt += `\n\nIMPORTANT - USER INFORMATION:\n`;
-          finalSystemPrompt += `About the user: ${onboardingData.onboarding.aboutYou}\n`;
-          finalSystemPrompt += `User's goals: ${onboardingData.onboarding.goals}\n`;
-          finalSystemPrompt += `User's ideal self: ${onboardingData.onboarding.idealSelf}\n`;
+          
+          // Extract user messages from each onboarding section
+          const aboutYouMessages = onboardingData.onboardingResponse.aboutYou?.messages || [];
+          const goalsMessages = onboardingData.onboardingResponse.goals?.messages || [];
+          const idealSelfMessages = onboardingData.onboardingResponse.idealSelf?.messages || [];
+          
+          // Combine user messages for each section
+          const aboutYouContent = aboutYouMessages
+            .filter((msg: any) => msg.role === 'user')
+            .map((msg: any) => msg.content)
+            .join(' ');
+            
+          const goalsContent = goalsMessages
+            .filter((msg: any) => msg.role === 'user')
+            .map((msg: any) => msg.content)
+            .join(' ');
+            
+          const idealSelfContent = idealSelfMessages
+            .filter((msg: any) => msg.role === 'user')
+            .map((msg: any) => msg.content)
+            .join(' ');
+          
+          finalSystemPrompt += `About the user: ${aboutYouContent}\n`;
+          finalSystemPrompt += `User's goals: ${goalsContent}\n`;
+          finalSystemPrompt += `User's ideal self: ${idealSelfContent}\n`;
           finalSystemPrompt += `Use this information to provide highly personalized guidance that reflects the user's aspirations and self-image.`;
         }
       } catch (err) {

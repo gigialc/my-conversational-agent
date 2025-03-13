@@ -11,6 +11,15 @@ interface VapiCall {
   id: string;
 }
 
+interface VapiMessage {
+  role: string;
+  content: string;
+  timestamp?: string;
+  type?: string;
+  input?: string;
+  message?: string;
+}
+
 // Vapi assistant IDs for each onboarding question - these should match the original IDs used
 const VAPI_ASSISTANT_IDS = {
   aboutYou: "f5b8bc6b-42dc-462d-8b54-12dd14290299", 
@@ -41,6 +50,9 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
 
   // Vapi reference
   const vapiRef = useRef<Vapi | null>(null);
+
+  // Message state
+  const [messages, setMessages] = useState<VapiMessage[]>([]);
 
   // Initialize Vapi instance if needed
   useEffect(() => {
@@ -92,8 +104,14 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
         
         const data = await response.json();
         
-        if (data.success && data.isCompleted) {
-          // Onboarding questions are complete, check if we need to collect API key
+        // Check if we have valid onboarding responses
+        const hasCompletedAboutYou = data.onboardingResponse?.aboutYou?.completed;
+        const hasCompletedGoals = data.onboardingResponse?.goals?.completed;
+        const hasCompletedIdealSelf = data.onboardingResponse?.idealSelf?.completed;
+        const hasCompletedAllQuestions = hasCompletedAboutYou && hasCompletedGoals && hasCompletedIdealSelf;
+        
+        if (data.success && hasCompletedAllQuestions) {
+          // Only check voice setup if all onboarding questions are actually completed
           const voiceResponse = await fetch("/api/getVoiceId");
           const voiceData = await voiceResponse.json();
           
@@ -143,12 +161,46 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
           console.log(`📜 Full transcript length: ${newFull.length} chars`);
           return newFull;
         });
+      } else if (message.type === "voice-input") {
+        const input = message.input;
+        if (!input) return;
+
+        console.log(`🗣️ User input: "${input}" (length: ${input?.length})`);
+        
+        // Store complete message object with conversation metadata
+        const userMessage: VapiMessage = {
+          role: 'user',
+          content: input.trim(),
+          timestamp: new Date().toISOString(),
+          type: 'voice-input'
+        };
+        
+        // Add to messages state
+        setMessages(prev => [...prev, userMessage]);
+      } else if (message.role === 'assistant' && message.content) {
+        console.log(`🤖 Assistant response: "${message.content}" (length: ${message.content.length})`);
+        
+        // Store complete assistant message
+        const assistantMessage: VapiMessage = {
+          role: 'assistant',
+          content: message.content,
+          timestamp: new Date().toISOString()
+        };
+        
+        // Add to messages state
+        setMessages(prev => [...prev, assistantMessage]);
+        setCurrentTranscript('');
       }
     } catch (error) {
       console.error('❌ Error handling onboarding message:', error);
     }
   };
   
+  // Reset messages when starting a new question
+  useEffect(() => {
+    setMessages([]);
+  }, [onboardingStep]);
+
   // Set up message handler when component mounts
   useEffect(() => {
     if (vapiRef.current) {
@@ -209,18 +261,93 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
         await vapiRef.current.stop();
       }
       setIsOnboardingCallActive(false);
+
+      // Add a retry mechanism for fetching messages from Vapi
+      let vapiMessages = [];
+      let retryCount = 0;
+      const MAX_RETRIES = 5;
+      let messagesData = null;
       
-      // Save the response
+      while (retryCount < MAX_RETRIES) {
+        console.log(`🔄 Fetching messages from Vapi API for call ${onboardingCallId} (attempt ${retryCount + 1})`);
+        
+        const messagesResponse = await fetch(`/api/vapi/call-messages?callId=${onboardingCallId}&retry=true`);
+        
+        if (!messagesResponse.ok) {
+          console.error(`❌ Failed to fetch messages: ${messagesResponse.status} ${messagesResponse.statusText}`);
+          retryCount++;
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        
+        messagesData = await messagesResponse.json();
+        
+        // Check if call is complete AND has messages
+        const hasMessages = messagesData.messages && messagesData.messages.length > 0;
+        const isCallComplete = messagesData.rawCallData && 
+          (messagesData.rawCallData.status === 'ended' || messagesData.rawCallData.status === 'failed');
+        
+        if (!isCallComplete) {
+          console.log(`⏳ Call still processing in Vapi (status: ${messagesData.rawCallData?.status}). Waiting 2 seconds before retry ${retryCount + 1}/${MAX_RETRIES}`);
+          retryCount++;
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        
+        if (!hasMessages) {
+          console.log(`⚠️ Call complete but no messages retrieved. Waiting 2 seconds before retry ${retryCount + 1}/${MAX_RETRIES}`);
+          retryCount++;
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          continue;
+        }
+        
+        // Successfully got messages from a completed call
+        vapiMessages = messagesData.messages;
+        console.log(`✅ Retrieved ${vapiMessages.length} messages from completed call`);
+        break;
+      }
+
+      // Filter user messages from both local state and Vapi API
+      const localUserMessages = messages.filter((msg: VapiMessage) => msg.role === 'user' && (msg.content || msg.message)?.trim());
+      const vapiUserMessages = vapiMessages.filter((msg: VapiMessage) => msg.role === 'user' && (msg.content || msg.message)?.trim());
+      
+      // Combine and deduplicate messages based on content
+      const seenContent = new Set<string>();
+      const finalMessages = [...localUserMessages, ...vapiUserMessages]
+        .filter((msg: VapiMessage) => {
+          const content = msg.content || msg.message || '';
+          if (seenContent.has(content)) return false;
+          seenContent.add(content);
+          return true;
+        })
+        .map((msg: VapiMessage) => ({
+          role: 'user',
+          content: msg.content || msg.message || '',
+          timestamp: msg.timestamp || new Date().toISOString()
+        }));
+
+      console.log('Final processed messages:', finalMessages);
+      
+      if (finalMessages.length === 0) {
+        throw new Error('No user messages found in the conversation. Please try again and make sure to speak your response.');
+      }
+      
+      // Save the response with messages
       const response = await fetch('/api/onboarding-responses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           questionType: onboardingStep,
-          transcript: fullTranscript || currentTranscript,
           callId: onboardingCallId,
-          vapiAssistantId: currentOnboardingAssistantId
+          vapiAssistantId: currentOnboardingAssistantId,
+          messages: finalMessages
         })
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save response');
+      }
       
       const data = await response.json();
       
@@ -245,14 +372,19 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
           setFullTranscript('');
           setOnboardingCallId(null);
           setCurrentOnboardingAssistantId(null);
+          setMessages([]); // Clear messages for next question
         }
       } else {
-        console.error("Failed to save onboarding response:", data.error);
-        alert("Failed to save your response. Please try again.");
+        throw new Error(data.error || 'Failed to save response');
       }
     } catch (error) {
       console.error("Error processing onboarding response:", error);
-      alert("An error occurred while processing your response. Please try again.");
+      alert(error instanceof Error ? error.message : 'An error occurred while processing your response. Please try again.');
+      
+      // Reset call state but keep messages for retry
+      setIsOnboardingCallActive(false);
+      setOnboardingCallId(null);
+      setCurrentOnboardingAssistantId(null);
     } finally {
       setIsProcessingOnboardingResponse(false);
     }
@@ -590,14 +722,6 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
                   <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse mr-2"></div>
                   <p className="text-white">Voice assistant is listening...</p>
                 </div>
-                
-                {/* Transcript display */}
-                {(currentTranscript || fullTranscript) && (
-                  <div className="bg-gray-800 rounded-lg p-4 my-4">
-                    <p className="text-gray-400 text-sm mb-1">You said:</p>
-                    <p className="text-white">{currentTranscript || fullTranscript}</p>
-                  </div>
-                )}
                 
                 <div className="flex justify-between mt-6">
                   <button 

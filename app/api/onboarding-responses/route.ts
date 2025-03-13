@@ -3,6 +3,7 @@ import { connectToMongoDB } from "@/dbConfig/dbconfig";
 import { OnboardingResponse } from "@/models/OnboardingResponse";
 import jwt from 'jsonwebtoken';
 import User from "@/models/User";
+import axios from 'axios';
 
 // POST to save a response for a specific onboarding question
 export async function POST(request: NextRequest) {
@@ -45,12 +46,53 @@ export async function POST(request: NextRequest) {
     
     // Get request data
     const data = await request.json();
-    const { questionType, transcript, callId, vapiAssistantId } = data;
+    const { questionType, callId, vapiAssistantId, messages: frontendMessages } = data;
     
-    if (!questionType || !transcript || !callId || !vapiAssistantId) {
+    if (!questionType || !callId || !vapiAssistantId) {
       return NextResponse.json({ 
         success: false, 
         error: "Missing required fields" 
+      }, { status: 400 });
+    }
+
+    // Fetch messages from Vapi API
+    const VAPI_API_KEY = process.env.VAPI_API_KEY || "332f4870-c32c-4f96-8f26-bcf9c02b90b8";
+    const url = `https://api.vapi.ai/call/${callId}`;
+
+    const vapiResponse = await axios.get(url, {
+      headers: {
+        'Authorization': `Bearer ${VAPI_API_KEY}`
+      }
+    });
+
+    const call = vapiResponse.data;
+    
+    // Extract messages from the call data
+    let vapiMessages = [];
+    
+    // Check both potential message locations based on Vapi API structure
+    if (call.messages && call.messages.length > 0) {
+      vapiMessages = call.messages;
+    } else if (call.artifact && call.artifact.messages && call.artifact.messages.length > 0) {
+      vapiMessages = call.artifact.messages;
+    } else if (call.artifact && call.artifact.messagesOpenAIFormatted && call.artifact.messagesOpenAIFormatted.length > 0) {
+      vapiMessages = call.artifact.messagesOpenAIFormatted;
+    }
+
+    // Use frontend messages if available, otherwise use filtered Vapi messages
+    const finalMessages = (frontendMessages || vapiMessages)
+      .filter((msg: any) => msg.role === 'user')
+      .map((msg: any) => ({
+        role: 'user', // Ensure role is always 'user'
+        content: msg.content || msg.message || msg.input || '',
+        timestamp: msg.timestamp || new Date().toISOString()
+      }));
+
+    // Validate that we have at least one user message
+    if (finalMessages.length === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "No user messages found in the conversation" 
       }, { status: 400 });
     }
     
@@ -71,7 +113,7 @@ export async function POST(request: NextRequest) {
     
     // Update the specific question response
     onboardingResponse[questionType] = {
-      transcript,
+      messages: finalMessages,
       callId,
       vapiAssistantId,
       completed: true
