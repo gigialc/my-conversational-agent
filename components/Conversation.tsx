@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { useAssistantManager } from "@/hooks/useAssistantManager";
 import { useCallManager } from "@/hooks/useCallManager";
 import OnboardingFlow from "./OnboardingFlow";
@@ -306,6 +307,16 @@ export default function Conversation() {
   return (
     <div className="bg-black min-h-screen flex items-center justify-center">
       <div className="flex flex-col items-center max-w-md w-full px-6">
+        {/* Sign out button */}
+        <div className="absolute top-4 right-4">
+          <button
+            onClick={() => signOut({ callbackUrl: '/' })}
+            className="px-4 py-1 bg-gray-800 text-gray-300 hover:bg-gray-700 rounded-full text-sm transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+        
         {/* Status messages */}
         {!micFound && (
           <div className="text-red-500 text-center mb-6 p-4 rounded-lg bg-gray-800">
