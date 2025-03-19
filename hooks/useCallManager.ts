@@ -183,7 +183,7 @@ export function useCallManager({
   }, [currentCallId]);
 
   // Start call with Vapi
-  const startCall = async (firstMessage?: string) => {
+   const startCall = async (firstMessage?: string) => {
     if (!assistantId || !micFound) {
       console.error("Cannot start call: missing assistantId or microphone");
       return false;

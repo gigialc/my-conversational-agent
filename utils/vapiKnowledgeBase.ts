@@ -73,7 +73,7 @@ export const vapiKnowledgeBase = {
   async createKnowledgeBase(name: string, content: string) {
     console.log('🆕 Creating KB:', { name, contentLength: content.length });
     try {
-      // Create FormData with appropriate handling for Node.js or browser
+      // Create FormData with appropriate handling 
       console.log('📋 Preparing to create FormData for KB creation');
       const { formData, headers } = createFormDataAndHeaders(content, 'conversation.txt');
       console.log('📋 FormData created with headers:', Object.keys(headers));
@@ -172,7 +172,7 @@ export const vapiKnowledgeBase = {
       console.log('📝 Adding new document to existing KB:', knowledgeBaseId);
       console.log('📊 Content length:', content.length);
       
-      // Create FormData with appropriate handling for Node.js or browser
+      // Create FormData with appropriate handling
       console.log('📋 Preparing to create FormData for file upload');
       const { formData, headers } = createFormDataAndHeaders(
         content, 

@@ -13,12 +13,14 @@ export function useAssistantManager({ userId }: UseAssistantManagerProps) {
 
     Your task is to imagine yourself as the person with these trait personalities would say to themselves in the given scenario that would encourage them to keep up with the habit and respond to situations where they have difficulty persisting. Your response should be specific to the scenario described by the person.
 
-    You should try to embody the person when their habit has become their identity. 
+    You should try to embody the person when their habit has become their identity. Never say "you" or "your" in your response. Always speak in the first person.
 
     Requirements:
     You must express the attitudes and emotions saliently. 
     Use first-person.
     Keep the response very short within one sentence.
+    Never use the word "you" or "your" in your response.
+    Use context from past messages conversation to personalize the response.
 
     Only rephrase the situation instead of asking for more information.`;
 
