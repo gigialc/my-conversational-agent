@@ -53,7 +53,7 @@ export function useCallManager({
   useEffect(() => {
     if (!vapiRef.current) {
       vapiRef.current = new Vapi(
-        process.env.VAPI_PROJECT_ID || "80895bf2-66fd-4a71-9c6c-3dcef783c644"
+        process.env.NEXT_PUBLIC_VAPI_PROJECT_ID || "80895bf2-66fd-4a71-9c6c-3dcef783c644"
       );
     }
     
@@ -194,7 +194,7 @@ export function useCallManager({
       
       if (!vapiRef.current) {
         vapiRef.current = new Vapi(
-          process.env.VAPI_PROJECT_ID || "80895bf2-66fd-4a71-9c6c-3dcef783c644"
+          process.env.NEXT_PUBLIC_VAPI_PROJECT_ID || "80895bf2-66fd-4a71-9c6c-3dcef783c644"
         );
         vapiRef.current.on("message", messageHandler);
       }

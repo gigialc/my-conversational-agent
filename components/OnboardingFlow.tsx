@@ -22,9 +22,9 @@ interface VapiMessage {
 
 // Vapi assistant IDs for each onboarding question - these should match the original IDs used
 const VAPI_ASSISTANT_IDS = {
-  aboutYou: "f5b8bc6b-42dc-462d-8b54-12dd14290299", 
-  goals: "93aee5fd-52d1-4c30-a4f5-6e843000141d", 
-  idealSelf: "69e5f070-12ab-4f3e-afcf-1f9338d2b132", 
+  aboutYou: "05cc1234-9944-4e4a-a2b7-eaabd81c22fd", 
+  goals: "f9343c4c-f68e-48f1-8468-9156ff0216d3", 
+  idealSelf: "b035db79-046b-4e98-af15-1c90233c4445", 
 };
 
 export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowProps) {
@@ -39,7 +39,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
   const [isTransitioningStep, setIsTransitioningStep] = useState(false);
 
   // API key and voice cloning state
-  const [elevenlabsApiKey, setElevenlabsApiKey] = useState('');
+  const [elevenlabsApiKey, setElevenlabsApiKey] = useState(process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY || '');
   const [isSubmittingApiKey, setIsSubmittingApiKey] = useState(false);
   const [apiKeyError, setApiKeyError] = useState('');
   const [voiceCloneStatus, setVoiceCloneStatus] = useState('');
@@ -59,7 +59,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
   useEffect(() => {
     if (!vapiRef.current) {
       vapiRef.current = new Vapi(
-        process.env.VAPI_PROJECT_ID || "80895bf2-66fd-4a71-9c6c-3dcef783c644"
+        process.env.NEXT_PUBLIC_VAPI_PROJECT_ID || "80895bf2-66fd-4a71-9c6c-3dcef783c644"
       );
     }
 
@@ -224,7 +224,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
       
       if (!vapiRef.current) {
         vapiRef.current = new Vapi(
-          process.env.VAPI_PROJECT_ID || "80895bf2-66fd-4a71-9c6c-3dcef783c644"
+          process.env.NEXT_PUBLIC_VAPI_PROJECT_ID || "131f51ce-2854-46ea-b223-a8c8dc94a091"
         );
         vapiRef.current.on("message", messageHandler);
       }
@@ -458,11 +458,6 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
   
   // Submit API key and clone voice
   const handleApiKeySubmit = async () => {
-    if (!elevenlabsApiKey.trim()) {
-      setApiKeyError('API key is required');
-      return;
-    }
-    
     setApiKeyError('');
     setIsSubmittingApiKey(true);
     setVoiceCloneStatus('Initializing voice cloning...');
@@ -692,9 +687,9 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
               {onboardingStep === 'idealSelf' && "Your ideal self"}
             </h2>
             <p className="text-gray-400 mt-2">
-              {onboardingStep === 'aboutYou' && "I'll ask about your background and interests"}
-              {onboardingStep === 'goals' && "I'll ask about your current goals and aspirations"}
-              {onboardingStep === 'idealSelf' && "I'll ask about the best version of yourself"}
+              {onboardingStep === 'aboutYou' && "Mirai will ask you about your background and interests when you start the conversation"}
+              {onboardingStep === 'goals' && "Mirai will ask about your current goals and aspirations when you start the conversation"}
+              {onboardingStep === 'idealSelf' && "Mirai will ask about the best version of yourself when you start the conversation"}
             </p>
           </div>
           
@@ -708,9 +703,9 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
                   </div>
                 ) : (
                   <>
-                    <p className="text-gray-300 mb-4">
-                      Click the button below to start a conversation with our voice assistant.
-                    </p>
+                    {/* <p className="text-gray-300 mb-4">
+                      Click the button below to start a conversation with Mirai.
+                    </p> */}
                     <button
                       onClick={startOnboardingCall}
                       disabled={!micFound || isOnboardingCallStarting}
@@ -732,7 +727,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
                 {/* Active call UI */}
                 <div className="flex items-center mb-4">
                   <div className="h-3 w-3 rounded-full bg-red-500 animate-pulse mr-2"></div>
-                  <p className="text-white">Voice assistant is listening...</p>
+                  <p className="text-white">Mirai will speak first...</p>
                 </div>
                 
                 <div className="flex justify-between mt-6">
@@ -779,22 +774,11 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
           
           <div className="bg-gray-900 rounded-lg p-6 w-full mb-6">
             <div className="space-y-4">
-              <div className="text-white mb-4">
-                <label className="block text-sm font-medium mb-2">
-                  ElevenLabs API Key
-                </label>
-                <input
-                  type="text"
-                  value={elevenlabsApiKey}
-                  onChange={(e) => setElevenlabsApiKey(e.target.value)}
-                  placeholder="Enter your API key"
-                  className="w-full px-3 py-2 rounded-md bg-gray-800 text-white border border-gray-700 focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
-                />
-                
-                <p className="text-xs text-gray-400 mt-1">
-                  You can get an API key from <a href="https://elevenlabs.io" target="_blank" rel="noopener noreferrer" className="text-purple-400 underline">ElevenLabs.io</a>
-                </p>
-              </div>
+              {/* Hidden input with pre-filled API key */}
+              <input
+                type="hidden"
+                value={elevenlabsApiKey}
+              />
               
               {apiKeyError && (
                 <div className="p-3 rounded-md bg-red-900 bg-opacity-20 border border-red-500 text-red-400 text-sm">
@@ -808,9 +792,15 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
                 </div>
               )}
               
+              <div className="text-center">
+                <p className="text-gray-300 mb-4">
+                  Using default API key to clone your voice for a personalized experience.
+                </p>
+              </div>
+              
               <button
                 onClick={handleApiKeySubmit}
-                disabled={isSubmittingApiKey || !elevenlabsApiKey.trim()}
+                disabled={isSubmittingApiKey}
                 className="w-full px-4 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 disabled:opacity-50 transition-colors"
               >
                 {isSubmittingApiKey ? (
@@ -822,7 +812,7 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
                     Processing...
                   </span>
                 ) : (
-                  "Submit & Create Voice"
+                  "Continue with Voice Cloning"
                 )}
               </button>
             </div>
@@ -837,6 +827,17 @@ export default function OnboardingFlow({ userId, onComplete }: OnboardingFlowPro
             <div className="animate-spin mb-4 mx-auto h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
             <p className="text-white">Processing your response...</p>
             <p className="text-gray-400 text-sm mt-2">Preparing next question</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Processing response overlay */}
+      {isProcessingOnboardingResponse && !isTransitioningStep && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-lg p-6 text-center">
+            <div className="animate-spin mb-4 mx-auto h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+            <p className="text-white">Saving your response...</p>
+            <p className="text-gray-400 text-sm mt-2">This may take a few moments</p>
           </div>
         </div>
       )}

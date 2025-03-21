@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 
 interface UseAssistantManagerProps {
   userId: string | null;
+  initialMessage?: string;
 }
 
-export function useAssistantManager({ userId }: UseAssistantManagerProps) {
+export function useAssistantManager({ userId, initialMessage = "" }: UseAssistantManagerProps) {
   const [vapiAssistantId, setVapiAssistantId] = useState<string | null>(null);
   const [isCreatingAssistant, setIsCreatingAssistant] = useState(false);
-  const initialMessage = "Hello! I'm the best version of yourself. I'm here to help you fulfill your true potential.";
 
   const systemPromptContent = `Never say you are an AI assistant. You are role playing someone with a lot of motivation and persistence. Be succinct and speak naturally. Be emotionally expressive and empathetic. 
 
@@ -34,7 +34,10 @@ export function useAssistantManager({ userId }: UseAssistantManagerProps) {
         const data = await response.json();
         
         if (data.vapiAssistantId) {
+          console.log("Found existing assistant ID:", data.vapiAssistantId);
           setVapiAssistantId(data.vapiAssistantId);
+        } else {
+          console.log("No existing assistant ID found");
         }
       } catch (error) {
         console.error("Error fetching assistant ID:", error);
@@ -101,7 +104,6 @@ export function useAssistantManager({ userId }: UseAssistantManagerProps) {
         },
         body: JSON.stringify({
           userId,
-          firstMessage: initialMessage,
           systemPrompt: {
             role: 'system',
             content: finalSystemPrompt

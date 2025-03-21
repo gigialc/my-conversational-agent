@@ -11,7 +11,6 @@ const FREE_TIME_LIMIT_MINUTES = 10;
 
 export default function Conversation() {
   const router = useRouter();
-  
   // State for user details
   const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string>("");
@@ -216,13 +215,27 @@ export default function Conversation() {
     try {
       // If we don't have an assistant yet, create one
       if (!vapiAssistantId && hasRequiredCredentials) {
-        await createAssistant();
+        const newAssistantId = await createAssistant();
+        // If we still don't have a valid assistant ID after trying to create one, show an error
+        if (!newAssistantId) {
+          alert("Could not create assistant. Please try again.");
+          return;
+        }
+        // Wait a moment for state to update
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      // Final check to make sure we have an assistant ID before starting call
+      if (!vapiAssistantId) {
+        alert("No assistant available. Please refresh the page and try again.");
+        return;
       }
       
       // Start the call
       await startCall(initialMessage);
     } catch (error) {
       console.error("Error in handleStartCall:", error);
+      alert("Failed to start voice assistant. Please try again.");
     }
   };
 
