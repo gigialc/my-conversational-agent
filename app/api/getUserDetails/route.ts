@@ -41,8 +41,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
         username: user.username,
         elevenlabsapi: user.elevenlabsapi,
-        elevenlabsagentid: user.elevenlabsagentid,
-        initialMessageHandled: user.initialMessageHandled
+        elevenlabsagentid: user.elevenlabsagentid
       },
     });
   } catch (error: any) {

@@ -409,8 +409,9 @@ export default function Conversation() {
         {/* Remaining time display */}
         {isCallActive && (
           <div className="mt-4 text-gray-400 text-sm">
-            Remaining time: {Math.floor(remainingSeconds / 60)}:
-            {(remainingSeconds % 60).toString().padStart(2, "0")}
+            <div className="text-white text-center mb-6 p-4 animate-pulse">
+              Mirai is listening...
+            </div>
           </div>
         )}
         

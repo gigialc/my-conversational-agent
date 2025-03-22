@@ -85,6 +85,28 @@ export async function GET(request: NextRequest) {
       const errorText = await audioResponse.text();
       console.error(`Failed to fetch audio: ${audioResponse.status} - ${errorText}`);
       
+      // Try alternate endpoints - Vapi API may have changed
+      console.log('Trying alternate Vapi API endpoint format...');
+      const alternateResponse = await fetch(`https://api.vapi.ai/recording/${callId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${VAPI_API_KEY}`,
+          'Accept': 'audio/wav',
+        },
+      });
+      
+      if (alternateResponse.ok) {
+        const audioBuffer = await alternateResponse.arrayBuffer();
+        if (audioBuffer.byteLength > 0) {
+          console.log(`Successfully retrieved audio from alternate endpoint: ${(audioBuffer.byteLength / 1024).toFixed(2)}KB`);
+          const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' });
+          const response = new NextResponse(audioBlob);
+          response.headers.set('Content-Type', 'audio/wav');
+          response.headers.set('Content-Disposition', `attachment; filename="call_${callId}.wav"`);
+          return response;
+        }
+      }
+      
       // If artifact URLs are available in the call data, try using those
       if (callData.artifact && callData.artifact.recordingUrl) {
         console.log(`Attempting to fetch recording from artifact URL: ${callData.artifact.recordingUrl}`);
